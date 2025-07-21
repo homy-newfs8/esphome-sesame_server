@@ -14,7 +14,11 @@ o[Open Sensor] -->|open/close| server
 r[CANDY HOUSE Remote/nano] -->|lock/unlock| server
 ```
 
-> [!注意] このコンポーネントはESPHomeに組込みのBluetooth機能をつかっていません。
+> [!WARNING]
+> このコンポーネントは ESPHome 2025.7.0 以降に対応していません。今のところ動作確認が取れている最新版は ESPHome 2025.6.3 です。
+
+> [!NOTE]
+> このコンポーネントはESPHomeに組込みのBluetooth機能をつかっていません。
 > そのため、ESPHome用の他のBluetooth関連コンポーネントと同居することはできません。
 > 両方を使いたい場合には別のESP32モジュールに搭載してください。
 
