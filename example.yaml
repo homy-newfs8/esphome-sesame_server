@@ -3,19 +3,18 @@ esphome:
   friendly_name: SesameServer1
   platformio_options:
     build_flags:
-    - -std=gnu++17 -Wall -Wextra
-    - -DMBEDTLS_DEPRECATED_REMOVED
-# Configure the maximum number of connections as required (maximum: 9)
-    - -DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=6
-    - -DCONFIG_NIMBLE_CPP_LOG_LEVEL=0
-    build_unflags:
-    - -std=gnu++11
+      - -Wall -Wextra
+      - -DMBEDTLS_DEPRECATED_REMOVED
+      # Configure the maximum number of connections as required (maximum: 9)
+      - -DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=6
+      - -DCONFIG_NIMBLE_CPP_LOG_LEVEL=0
+      - -DCONFIG_MBEDTLS_CMAC_C	-DUSE_FRAMEWORK_MBEDTLS_CMAC
 external_components:
-- source:
-    type: git
-    url: https://github.com/homy-newfs8/esphome-sesame_server
-    ref: v0.3.0
-  components: [ sesame_server ]
+  - source:
+      type: git
+      url: https://github.com/homy-newfs8/esphome-sesame_server
+      ref: v0.4.0
+    components: [sesame_server]
 # - source: '../esphome/esphome/components2'
 #   components: [ sesame_server ]
 
@@ -60,33 +59,33 @@ api:
   password: !secret api_password
 
 button:
-- platform: template
-  name: "Reset Sesame Server"
-  on_press:
-  - lambda: |-
-      id(sesame_server_1).reset();
+  - platform: template
+    name: "Reset Sesame Server"
+    on_press:
+      - lambda: |-
+          id(sesame_server_1).reset();
 
 sesame_server:
   id: sesame_server_1
   address: !secret sesame_server_my_address
   uuid: !secret sesame_server_my_uuid
   triggers:
-  - name: Sesame Touch 1
-    id: touch_1
-    address: !secret touch_1_address
-    history_tag:
-      id: touch_1_tag
-      name: "Sesame_Touch_tag"
-    trigger_type:
-      id: touch_1_trigger_type
-      name: "Sesame_Touch_trigger_type"
-    on_event:
-      then:
-        - lambda: |-
-            ESP_LOGD("example", "Event '%s'/'%s'/%.0f triggered", event_type.c_str(), id(touch_1)->get_history_tag().c_str(), id(touch_1)->get_trigger_type());
-  - name: Remote 1
-    address: !secret remote_address
-    on_event:
-      then:
-        - lambda: |-
-            ESP_LOGD("example", "Event '%s' triggered", event_type.c_str());
+    - name: Sesame Touch 1
+      id: touch_1
+      address: !secret touch_1_address
+      history_tag:
+        id: touch_1_tag
+        name: "Sesame_Touch_tag"
+      trigger_type:
+        id: touch_1_trigger_type
+        name: "Sesame_Touch_trigger_type"
+      on_event:
+        then:
+          - lambda: |-
+              ESP_LOGD("example", "Event '%s'/'%s'/%.0f triggered", event_type.c_str(), id(touch_1)->get_history_tag().c_str(), id(touch_1)->get_trigger_type());
+    - name: Remote 1
+      address: !secret remote_address
+      on_event:
+        then:
+          - lambda: |-
+              ESP_LOGD("example", "Event '%s' triggered", event_type.c_str());

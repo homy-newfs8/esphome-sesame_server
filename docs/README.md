@@ -14,9 +14,6 @@ o[Open Sensor] -->|open/close| server
 r[CANDY HOUSE Remote/nano] -->|lock/unlock| server
 ```
 
-> [!WARNING]
-> このコンポーネントは ESPHome 2025.7.0 以降に対応していません。今のところ動作確認が取れている最新版は ESPHome 2025.6.3 です。
-
 > [!NOTE]
 > このコンポーネントはESPHomeに組込みのBluetooth機能をつかっていません。
 > そのため、ESPHome用の他のBluetooth関連コンポーネントと同居することはできません。
@@ -102,24 +99,26 @@ if __name__ == "__main__":
 # ESPHomeへの本コンポーネントの導入
 本コンポーネントをESP32にインストールするにはESPHomeの[External Component](https://esphome.io/components/external_components.html)として導入します。以下がYAMLファイルの例です。また[サンプルファイル](../example.yaml)も参考にしてください。
 
+> [!NOTE]
+> このコンポーネントを ESPHome 2025.7.0 以前のバージョンで使う場合は[下記](#少し古いesphomeで使う場合)を参照願います。
+
 ```yaml
 esphome:
   name: sesame-server-1
   friendly_name: SesameServer1
   platformio_options:
     build_flags:
-    - -std=gnu++17 -Wall -Wextra
+    - -Wall -Wextra
     - -DMBEDTLS_DEPRECATED_REMOVED
 # Configure the maximum number of connections as required (maximum: 9)
     - -DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=6
     - -DCONFIG_NIMBLE_CPP_LOG_LEVEL=0
-    build_unflags:
-    - -std=gnu++11
+    - -DCONFIG_MBEDTLS_CMAC_C	-DUSE_FRAMEWORK_MBEDTLS_CMAC
 external_components:
 - source:
     type: git
     url: https://github.com/homy-newfs8/esphome-sesame_server
-    ref: v0.3.0
+    ref: v0.4.0
   components: [ sesame_server ]
 # - source: '../esphome/esphome/components2'
 #   components: [ sesame_server ]
@@ -135,6 +134,23 @@ esp32:
 同時に多数のSESAME TouchやRemoteと接続する場合には、`CONFIG_BT_NIMBLE_MAX_CONNECTIONS`の値を調整してください(最大9: 増やすほどメモリ使用量が増加します)。Open sensorやRemote nanoは操作した時にしか接続してこないので、同時接続数はある程度小さくても問題ないかもしれません。
 
 `esp32`セクションはインストール先のESP32モジュールに応じて指定します。本コンポーネントでは`framework`として`arduino`を指定する必要があります。
+
+## 少し古いESPHomeで使う場合
+設定ファイルの`esphome:`セクションを以下に置き換えます。
+```yaml
+esphome:
+  name: sesame-server-1
+  friendly_name: SesameServer1
+  platformio_options:
+    build_flags:
+    - -std=gnu++17 -Wall -Wextra
+    - -DMBEDTLS_DEPRECATED_REMOVED
+# Configure the maximum number of connections as required (maximum: 9)
+    - -DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=6
+    - -DCONFIG_NIMBLE_CPP_LOG_LEVEL=0
+    build_unflags:
+    - -std=gnu++11
+```
 
 # 本機のUUID、Bluetooth Addressの設定
 

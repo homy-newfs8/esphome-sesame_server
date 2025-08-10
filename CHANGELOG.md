@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.4.0] 2025-08-10
+- Support ESPHome 2025.7.0 (Arduino ESP32 3.x)
+
 ## [v0.3.0] 2025-06-08
 - Support SESAME Face / PRO
 - Support new History TAG format for SESAME May 2025 update
