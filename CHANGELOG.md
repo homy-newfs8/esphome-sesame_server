@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.5.0] 2025-09-07
+- Bump libsesame3-server version to v0.5.0
+
 ## [v0.4.0] 2025-08-10
 - Support ESPHome 2025.7.0 (Arduino ESP32 3.x)
 
