@@ -21,81 +21,19 @@ r[CANDY HOUSE Remote/nano] -->|lock/unlock| server
 
 ## 対応機種
 
-* [SESAME Touch](https://jp.candyhouse.co/products/sesame-touch)
-* [SESAME Touch PRO](https://jp.candyhouse.co/products/sesame-touch-pro)
+* [SESAMEタッチ](https://jp.candyhouse.co/products/sesame-touch)
+* [SESAMEタッチ Pro](https://jp.candyhouse.co/products/sesame-touch-pro)
 * [CANDY HOUSE Remote](https://jp.candyhouse.co/products/candyhouse_remote)
 * [CANDY HOUSE Remote nano](https://jp.candyhouse.co/products/candyhouse_remote_nano)
+* [SESAMEフェイス](https://jp.candyhouse.co/products/sesame-face)
+* [SESAMEフェイス Pro](https://jp.candyhouse.co/products/sesame-face-pro)
 * [オープンセンサー](https://jp.candyhouse.co/products/sesame-opensensor)
 
 ## 必要なもの
 
-* 適切なUUIDとBLEアドレスの組<br/>
-SESAME 5以降の機種ではBLEアドレスとしてUUIDから算出可能な値を使う仕様になっています(Remote/Touch等は操作対象デバイスのUUIDを保持しており、操作時にはBTスキャンを実行せずに算出されたアドレスに接続します)。計算方法等は[後述](#uuidからbleアドレスの導出方法)します
-
-* ESP32シリーズ<br/>
+* ESP32シリーズ\
 基本的に[Arduino core for ESP32](https://github.com/espressif/arduino-esp32)がサポートするESP32シリーズはどれでも動作すると思われます。私はArduino core v2.0系を使い、ESP32 C3やESP32 S3で動作確認しています。
 
-### UUIDからBLEアドレスの導出方法
-
-UUIDからBLEアドレスを算出する方法は[API文書](https://github.com/CANDY-HOUSE/API_document/blob/master/SesameOS3/101_add_sesame.ja.md#%E3%82%A2%E3%82%AF%E3%83%86%E3%82%A3%E3%83%93%E3%83%86%E3%82%A3%E5%9B%B3%E6%96%B0%E8%A6%8F%E3%82%BB%E3%82%B5%E3%83%9F-5-%E3%82%92%E8%BF%BD%E5%8A%A0)に公開されています。
-
-サーバーで使用するUUIDとBLEアドレスの組を指定する場合は、まず適当なツールでUUIDを生成し上記のアルゴリズムでBLEアドレスを算出して使用します。以下に Google Geminiに生成してもらったpythonスクリプトを置きますので参考にしてください。
-
-```python
-from Crypto.Hash import CMAC
-from Crypto.Cipher import AES
-import binascii
-
-def generate_aes_cmac_modified(uuid_str):
-    """
-    128bit UUIDを鍵とし、AES CMACで文字列"candy"の認証コードを算出する。
-    その先頭6バイトを取得し、バイト順を反転させ、
-    反転後の先頭バイトに0xc0をOR演算し、16進数文字列で出力する。
-
-    Args:
-        uuid_str (str): 128bit UUIDの文字列。ハイフンを含んでいても良い。
-
-    Returns:
-        str: 認証コードの加工後の先頭6バイトの16進数文字列。
-    """
-    # UUID文字列からハイフンを除去し、16進数として解釈してバイト列に変換
-    uuid_bytes = binascii.unhexlify(uuid_str.replace('-', ''))
-
-    # CMACオブジェクトを作成
-    cobj = CMAC.new(uuid_bytes, ciphermod=AES)
-
-    # 認証対象のデータ
-    data = b"candy"
-
-    # データを更新（ハッシュ計算）
-    cobj.update(data)
-
-    # 認証コード（MAC）を取得
-    mac = cobj.digest()
-
-    # 先頭6バイトを抽出
-    first_6_bytes = mac[:6]
-
-    # バイト順を反転
-    reversed_bytes = first_6_bytes[::-1] # スライスでバイト列を反転
-
-    # 反転後の先頭バイトに0xc0をOR演算
-    # バイト列はイミュータブルなので、リストに変換して操作し、再度バイト列に戻す
-    modified_bytes_list = list(reversed_bytes)
-    modified_bytes_list[0] = modified_bytes_list[0] | 0xc0
-    final_bytes = bytes(modified_bytes_list)
-
-    # 16進数文字列で出力
-    return binascii.hexlify(final_bytes).decode('utf-8')
-
-if __name__ == "__main__":
-    # 例として128bit UUIDを用意
-    test_uuid = "2d39e028-a1ed-48b8-809b-1799d1018ec1"
-
-    auth_code_modified = generate_aes_cmac_modified(test_uuid)
-    print(f"入力UUID: {test_uuid}")
-    print(f"加工後の認証コード (先頭6バイト): {auth_code_modified}")
-```
 # ESPHomeへの本コンポーネントの導入
 本コンポーネントをESP32にインストールするにはESPHomeの[External Component](https://esphome.io/components/external_components.html)として導入します。以下がYAMLファイルの例です。また[サンプルファイル](../example.yaml)も参考にしてください。
 
@@ -118,7 +56,7 @@ external_components:
 - source:
     type: git
     url: https://github.com/homy-newfs8/esphome-sesame_server
-    ref: v0.5.0
+    ref: v0.6.0
   components: [ sesame_server ]
 # - source: '../esphome/esphome/components2'
 #   components: [ sesame_server ]
@@ -135,44 +73,38 @@ esp32:
 
 `esp32`セクションはインストール先のESP32モジュールに応じて指定します。本コンポーネントでは`framework`として`arduino`を指定する必要があります。
 
-## 少し古いESPHomeで使う場合
-設定ファイルの`esphome:`セクションを以下に置き換えます。
-```yaml
-esphome:
-  name: sesame-server-1
-  friendly_name: SesameServer1
-  platformio_options:
-    build_flags:
-    - -std=gnu++17 -Wall -Wextra
-    - -DMBEDTLS_DEPRECATED_REMOVED
-# Configure the maximum number of connections as required (maximum: 9)
-    - -DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=6
-    - -DCONFIG_NIMBLE_CPP_LOG_LEVEL=0
-    build_unflags:
-    - -std=gnu++11
-```
+# 本機のUUIDの選定と設定
 
-# 本機のUUID、Bluetooth Addressの設定
-
-UUIDとアドレスは[前述](#uuidからbleアドレスの導出方法)した条件を満たすものを使用してください。
+SESAME機器はすべて自身のUUIDを持っており、互いの通信において相手を識別するために使用しています。本機で使用するUUIDをyamlファイルに指定します。
 
 ```yaml
 sesame_server:
   id: sesame_server_1
-  address: "01:02:03:04:05:06"
   uuid: "12345678-1234-1234-1234-123456789abc"
 ```
 
-`address`や`uuid`は上記のように直接書くか、ESPHomeの他のコンポーネントの設定と同様に別ファイルを参照させることも可能です([example.yaml](example.yaml)参照)。
+本機で使用するUUIDは自分で持っているSESAMEデバイスと重複しないようなUUIDを指定する必要があります。乱数で作ればまず重複することはないでしょうから、適当なツールで生成してください。
 
-`id`は必須ではありませんが、ESPHomeのイベントハンドラから本コンポーネントをターゲットとして呼び出すときに必要です(後述)。C++言語の識別子として適切な文字列を指定します。
+Windows:
+```
+powershell "[Guid]::NewGuid().ToString()"
+```
+
+Python:
+```
+python -c "import uuid; print(uuid.uuid4())"
+```
 
 ## sesame_server設定変数
 * **id** (*Optional*, string): コード生成に使用される識別子を任意に指定可能。
 * **uuid** (**Required**, string): 本デバイス用UUID
-* **address** (**Required**, string): 本デバイス用Bluetooth Address
 * **max_sessions** (*Optional*, int): 最大同時セッション数。無指定の場合は3。変更する場合は`platformio_options`セクションの`CONFIG_BT_NIMBLE_MAX_CONNECTIONS`設定も見直したほうが良い。
 * **triggers** (*Optional*): イベント処理対象のデバイスのリスト(次節)。
+
+`id`は必須ではありませんが、ESPHomeのイベントハンドラから本コンポーネントをターゲットとして呼び出すときに必要です(後述)。C++言語の識別子として適切な文字列を指定します。
+
+> [!NOTE]
+> Version 0.6.0から`address`は指定不要になりました。今のところエラーにしていませんが、指定しても意味はありませんので、設定を見直す際に削除することをお薦めします。
 
 # 接続するデバイスの指定
 本機が受け付けるSESAME TouchやRemoteのAddressを指定します。指定されていない機器からの接続も(認証が通る分には)許容しますが、ボタンを押してもイベントを発生させません。
@@ -205,7 +137,7 @@ sesame_server:
 
 `triggers`セクションには複数のデバイスをリストで指定します。デバイスひとつひとつは[Event](https://esphome.io/components/event/index.html)であり、それぞれにイベント受信時の処理(`on_event`)やHome Assistantで表示されるアイコン等を指定することができます。
 
-`history_tag`は[Text Sensor](https://esphome.io/components/text_sensor/#base-text-sensor-configuration)で、SESAME Touch等が通知してくるタグ値をHome Assistantに通知します。SESAME Touch系では指紋やカードにつけた名前が通知されるため、それらに応じて処理を分岐させることが可能です。同じ値は[Lambda](https://esphome.io/cookbook/lambda_magic.html)内からはtriggerコンポーネントの`std::string get_history_tag()`で参照可能です。
+`history_tag`は[Text Sensor](https://esphome.io/components/text_sensor/#base-text-sensor-configuration)で、SESAME Touch等が`lock`/`unlock`のコマンドに付与してくるタグ値を通知します。SESAME Touch系では指紋やカードにつけたUUIDが通知されるため、それらに応じて処理を分岐させることが可能です。同じ値は[Lambda](https://esphome.io/cookbook/lambda_magic.html)内からはtriggerコンポーネントの`std::string get_history_tag()`で参照可能です。
 
 `trigger_type`は[Sensor](https://esphome.io/components/sensor/#config-sensor)で、SESAME Touch等が通知してくるタイプ値をHome Assistantに通知します。この値についての詳細は[esphome-sesame3のREADME](https://github.com/homy-newfs8/esphome-sesame3/tree/main/docs#history-tag-uuid-and-trigger-type)に記載してあります。センサー値はESPHomeの仕様上はfloat値です。`trigger_type`を含まない命令を受信した場合は`NaN`になります。[Lambda](https://esphome.io/cookbook/lambda_magic.html)内ではtriggerコンポーネントの`float get_trigger_type()`で参照可能です。
 
@@ -363,4 +295,21 @@ button:
   on_press:
   - lambda: |-
       id(sesame_server_1).reset();
+```
+
+# 少し古いESPHomeで使う場合
+設定ファイルの`esphome:`セクションを以下に置き換えます。
+```yaml
+esphome:
+  name: sesame-server-1
+  friendly_name: SesameServer1
+  platformio_options:
+    build_flags:
+    - -std=gnu++17 -Wall -Wextra
+    - -DMBEDTLS_DEPRECATED_REMOVED
+# Configure the maximum number of connections as required (maximum: 9)
+    - -DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=6
+    - -DCONFIG_NIMBLE_CPP_LOG_LEVEL=0
+    build_unflags:
+    - -std=gnu++11
 ```

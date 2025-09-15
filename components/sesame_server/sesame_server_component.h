@@ -8,6 +8,7 @@
 #include <esphome/core/preferences.h>
 #include <memory>
 #include <set>
+#include <string_view>
 #include <vector>
 
 namespace esphome {
@@ -39,7 +40,7 @@ class SesameTrigger : public event::Event {
 
 class SesameServerComponent : public Component {
  public:
-	SesameServerComponent(uint8_t max_sessions, const char* uuid, const char* btaddr);
+	SesameServerComponent(uint8_t max_sessions, std::string_view uuid);
 	void setup() override;
 	void loop() override;
 	void reset();
@@ -57,7 +58,6 @@ class SesameServerComponent : public Component {
  private:
 	libsesame3bt::SesameServer sesame_server;
 	const NimBLEUUID uuid;
-	const NimBLEAddress btaddr;
 	std::vector<std::unique_ptr<SesameTrigger>> triggers;
 	bool last_status;
 	ESPPreferenceObject prefs_secret;

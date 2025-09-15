@@ -1,10 +1,13 @@
+import logging
 import string
 
 import esphome.codegen as cg
 from esphome.components import event, sensor, text_sensor
 import esphome.config_validation as cv
 from esphome.const import CONF_ADDRESS, CONF_ID, CONF_UUID
+from esphome.types import ConfigType
 
+_LOGGER = logging.getLogger(__name__)
 AUTO_LOAD = ["event", "sensor", "text_sensor"]
 DEPENDENCIES = ["event", "sensor", "text_sensor"]
 CONFLICTS_WITH = ["esp32_ble"]
@@ -35,6 +38,14 @@ def valid_hexstring(key, valid_len):
     return func
 
 
+def warn_address_deprecated(config: ConfigType) -> ConfigType:
+    if CONF_ADDRESS in config:
+        _LOGGER.warning(
+            "The 'address' option for esphome-sesame_server components is deprecated and has no effect. It will be removed in the future."
+        )
+    return config
+
+
 TRIGGER_SCHEMA = event.event_schema().extend(
     {
         cv.GenerateID(): cv.declare_id(SesameTrigger),
@@ -49,17 +60,18 @@ CONFIG_SCHEMA = cv.All(
         {
             cv.GenerateID(): cv.declare_id(SesameServerComponent),
             cv.Required(CONF_UUID): cv.uuid,
-            cv.Required(CONF_ADDRESS): cv.mac_address,
+            cv.Optional(CONF_ADDRESS): cv.string,
             cv.Optional(CONF_MAX_SESSIONS, default=3): cv.int_range(1, 9),
             cv.Optional(CONF_TRIGGERS): cv.ensure_list(TRIGGER_SCHEMA),
         }
     ).extend(cv.COMPONENT_SCHEMA),
     cv.only_with_arduino,
+    warn_address_deprecated,
 )
 
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID], config[CONF_MAX_SESSIONS], str(config[CONF_UUID]), str(config[CONF_ADDRESS]))
+    var = cg.new_Pvariable(config[CONF_ID], config[CONF_MAX_SESSIONS], str(config[CONF_UUID]))
     await cg.register_component(var, config)
     if CONF_TRIGGERS in config:
         for trigger in config[CONF_TRIGGERS]:
@@ -72,7 +84,8 @@ async def to_code(config):
                 t = await sensor.new_sensor(trigger[CONF_TRIGGER_TYPE])
                 cg.add(trig.set_trigger_type_sensor(t))
             cg.add(var.add_trigger(trig))
-    cg.add_library("libsesame3bt-server", None, "https://github.com/homy-newfs8/libsesame3bt-server#v0.5.0")
+
+    cg.add_library("libsesame3bt-server", None, "https://github.com/homy-newfs8/libsesame3bt-server#v0.6.0")
     # cg.add_library("libsesame3bt-server", None, "symlink://../../../../../../PlatformIO/Projects/libsesame3bt-server")
     # cg.add_library("libsesame3bt-core", None, "symlink://../../../../../../PlatformIO/Projects/libsesame3bt-core")
     # cg.add_platformio_option("lib_ldf_mode", "deep")

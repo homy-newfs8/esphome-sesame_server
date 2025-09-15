@@ -13,7 +13,7 @@ external_components:
   - source:
       type: git
       url: https://github.com/homy-newfs8/esphome-sesame_server
-      ref: v0.4.0
+      ref: v0.6.0
     components: [sesame_server]
 # - source: '../esphome/esphome/components2'
 #   components: [ sesame_server ]
@@ -67,7 +67,6 @@ button:
 
 sesame_server:
   id: sesame_server_1
-  address: !secret sesame_server_my_address
   uuid: !secret sesame_server_my_uuid
   triggers:
     - name: Sesame Touch 1

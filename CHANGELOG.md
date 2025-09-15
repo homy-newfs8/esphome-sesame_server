@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.6.0] 2025-09-XX
+- Remove `address` parameter requirements from `sesame_server` section.
+
 ## [v0.5.0] 2025-09-07
 - Bump libsesame3-server version to v0.5.0
 

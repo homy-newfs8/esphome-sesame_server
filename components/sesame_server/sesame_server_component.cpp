@@ -14,6 +14,7 @@ constexpr const uint32_t SESAMESERVER_RANDOM = 0x76d18970;
 }  // namespace
 
 using libsesame3bt::Sesame;
+using libsesame3bt::SesameServer;
 
 static const char*
 event_name(Sesame::item_code_t cmd) {
@@ -33,8 +34,8 @@ event_name(Sesame::item_code_t cmd) {
 	}
 }
 
-SesameServerComponent::SesameServerComponent(uint8_t max_sessions, const char* uuid, const char* btaddr)
-    : sesame_server(max_sessions), uuid(uuid), btaddr(btaddr, BLE_ADDR_RANDOM) {}
+SesameServerComponent::SesameServerComponent(uint8_t max_sessions, std::string_view uuid)
+    : sesame_server(max_sessions), uuid(std::string{uuid}) {}
 
 bool
 SesameServerComponent::prepare_secret() {
@@ -102,12 +103,13 @@ SesameServerComponent::setup() {
 		defer([this, addr, item_code, tag_str = tag, trigger_type]() { on_command(addr, item_code, tag_str, trigger_type); });
 		return Sesame::result_code_t::success;
 	});
-	if (!sesame_server.begin(Sesame::model_t::sesame_5, btaddr, uuid) || !sesame_server.start_advertising()) {
+	if (!sesame_server.begin(Sesame::model_t::sesame_5, uuid) || !sesame_server.start_advertising()) {
 		ESP_LOGE(TAG, "Failed to start SESAME server");
 		mark_failed();
 		return;
 	}
-	ESP_LOGI(TAG, "SESAME Server started as %sregistered", sesame_server.is_registered() ? "" : "not ");
+	ESP_LOGI(TAG, "SESAME Server started as %sregistered on %s", sesame_server.is_registered() ? "" : "not ",
+	         NimBLEDevice::getAddress().toString().c_str());
 }
 
 void
