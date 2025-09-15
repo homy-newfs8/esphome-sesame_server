@@ -1,6 +1,6 @@
 # Changelog
 
-## [v0.6.0] 2025-09-XX
+## [v0.6.0] 2025-09-15
 - Remove `address` parameter requirements from `sesame_server` section.
 
 ## [v0.5.0] 2025-09-07
