@@ -61,7 +61,7 @@ SesameServerComponent::save_secret(const std::array<std::byte, Sesame::SECRET_SI
 	return false;
 }
 
-Sesame::result_code_t
+void
 SesameServerComponent::on_command(const NimBLEAddress& addr,
                                   Sesame::item_code_t cmd,
                                   const std::string tag,
@@ -73,19 +73,16 @@ SesameServerComponent::on_command(const NimBLEAddress& addr,
 	    trig == std::cend(triggers)) {
 		ESP_LOGW(TAG, "%s: cmd=%s(%u), tag=\"%s\" received from unlisted device", addr.toString().c_str(), event_name(cmd),
 		         static_cast<uint8_t>(cmd), tag.c_str());
-		return Sesame::result_code_t::success;
 	} else {
-		if (!(*trig)->lock_entity) {
+		(*trig)->invoke(cmd, tag, trigger_type);
+		// triggerにlockがなく、かつsesame_serverにもlockがない場合、lock/unlockコマンドに対して自動応答する
+		if (!(*trig)->has_lock_entity() && !lock_entity) {
 			if (cmd == Sesame::item_code_t::lock || cmd == Sesame::item_code_t::unlock) {
-				last_status = cmd == Sesame::item_code_t::lock;
-				set_timeout(0, [this]() {
-					if (!sesame_server.send_lock_status(last_status)) {
-						ESP_LOGW(TAG, "Failed to send lock status");
-					}
-				});
+				if (!sesame_server.send_lock_status(cmd == Sesame::item_code_t::lock)) {
+					ESP_LOGW(TAG, "Failed to send lock status");
+				}
 			}
 		}
-		return (*trig)->invoke(cmd, tag, trigger_type);
 	}
 }
 
@@ -134,8 +131,22 @@ SesameServerComponent::reset() {
 	}
 }
 
-SesameTrigger::SesameTrigger(SesameServerComponent* server_component, const char* address)
-    : address(address, BLE_ADDR_RANDOM), server_component(server_component) {
+SesameTrigger::SesameTrigger(SesameServerComponent* server_component, std::string_view btaddr, std::string_view uuid)
+    : server_component(server_component) {
+	if (!btaddr.empty()) {
+		address = NimBLEAddress(std::string{btaddr}, BLE_ADDR_RANDOM);
+	} else if (uuid.empty()) {
+		ESP_LOGE(TAG, "Either btaddr or uuid is required.");
+		server_component->mark_failed();
+		return;
+	} else {
+		address = SesameServer::uuid_to_ble_address(NimBLEUUID{std::string{uuid}});
+	}
+	if (address.isNull()) {
+		ESP_LOGE(TAG, "Invalid btaddr or uuid.");
+		server_component->mark_failed();
+		return;
+	}
 	set_event_types(supported_triggers);
 }
 
@@ -147,11 +158,11 @@ make_float(std::optional<libsesame3bt::trigger_type_t> trigger_type) {
 	return NAN;
 }
 
-Sesame::result_code_t
+void
 SesameTrigger::invoke(Sesame::item_code_t cmd, const std::string& tag, std::optional<libsesame3bt::trigger_type_t> trigger_type) {
 	const char* evs = event_name(cmd);
 	if (evs[0] == 0) {
-		return Sesame::result_code_t::unknown;
+		return;
 	}
 	history_tag = tag;
 	this->trigger_type = make_float(trigger_type);
@@ -163,7 +174,6 @@ SesameTrigger::invoke(Sesame::item_code_t cmd, const std::string& tag, std::opti
 	}
 	ESP_LOGD(TAG, "Triggering %s to %s", evs, get_name().c_str());
 	trigger(evs);
-	return Sesame::result_code_t::success;
 }
 
 void
@@ -207,16 +217,27 @@ SesameTriggerLock::control(const lock::LockCall& call) {
 		ESP_LOGW(TAG, "LockCall without state, ignored");
 		return;
 	}
-	this->state = *call.get_state();
+	state = *call.get_state();
 
-	if (!_parent->send_lock_state(this->state)) {
-		ESP_LOGW(TAG, "Failed to send lock status");
+	publish_state(state);
+	bool sent = false;
+	if (!std::visit([this](auto& x) { return x.get().send_lock_state(state); }, parent_)) {
+		ESP_LOGW(TAG, "Failed to send lock state to trigger device");
 	}
-	publish_state(this->state);
 }
 
 bool
 SesameTrigger::send_lock_state(lock::LockState state) {
+	return server_component->send_lock_state(&address, state);
+}
+
+bool
+SesameServerComponent::send_lock_state(lock::LockState state) {
+	return send_lock_state(nullptr, state);
+}
+
+bool
+SesameServerComponent::send_lock_state(const NimBLEAddress* address, lock::LockState state) {
 	ESP_LOGD(TAG, "Sending lock state %s to trigger", lock::lock_state_to_string(state));
 	Sesame::mecha_status_5_t sst{};
 	sst.is_stop = true;
@@ -227,11 +248,24 @@ SesameTrigger::send_lock_state(lock::LockState state) {
 	} else {
 		sst.in_lock = state == lock::LOCK_STATE_LOCKED;
 	}
-	if (server_component->sesame_server.has_session(address)) {
-		return server_component->sesame_server.send_mecha_status(&address, sst);
+	if (address) {
+		if (sesame_server.has_session(*address)) {
+			return sesame_server.send_mecha_status(address, sst);
+		} else {
+			ESP_LOGW(TAG, "No session, cannot send lock status");
+			return false;
+		}
 	} else {
-		ESP_LOGW(TAG, "No session, cannot send lock status");
-		return false;
+		bool rc = true;
+		for (auto& trig : triggers) {
+			if (!trig->has_lock_entity() && sesame_server.has_session(trig->get_address())) {
+				if (!sesame_server.send_mecha_status(&trig->get_address(), sst)) {
+					ESP_LOGW(TAG, "Failed to send lock status to %s", trig->get_address().toString().c_str());
+					rc = false;
+				}
+			}
+		}
+		return rc;
 	}
 }
 

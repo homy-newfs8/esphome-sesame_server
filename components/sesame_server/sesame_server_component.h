@@ -8,9 +8,11 @@
 #include <esphome/components/text_sensor/text_sensor.h>
 #include <esphome/core/component.h>
 #include <esphome/core/preferences.h>
+#include <functional>
 #include <memory>
 #include <set>
 #include <string_view>
+#include <variant>
 #include <vector>
 
 namespace esphome {
@@ -19,39 +21,39 @@ namespace sesame_server {
 enum class state_t : int8_t { not_connected, connecting, authenticating, running, wait_reboot };
 
 class SesameTrigger;
+class SesameServerComponent;
 class SesameTriggerLock : public lock::Lock {
  public:
-	SesameTriggerLock(SesameTrigger* parent) : _parent(parent) {};
+	SesameTriggerLock(SesameTrigger* trigger) : parent_(*trigger) { traits.set_supported_states(trigger_lock_states); }
+	SesameTriggerLock(SesameServerComponent* trigger) : parent_(*trigger) { traits.set_supported_states(trigger_lock_states); }
 	void control(const lock::LockCall& call) override;
 
  private:
-	SesameTrigger* _parent;
+	std::variant<std::reference_wrapper<SesameTrigger>, std::reference_wrapper<SesameServerComponent>> parent_;
+	static inline const std::set<lock::LockState> trigger_lock_states{lock::LOCK_STATE_UNLOCKED, lock::LOCK_STATE_LOCKED,
+	                                                                  lock::LOCK_STATE_JAMMED};
 };
 
 class SesameServerComponent;
 class SesameTrigger : public event::Event {
-	friend class SesameServerComponent;
-
  public:
-	SesameTrigger(SesameServerComponent* server_component, const char* address);
+	SesameTrigger(SesameServerComponent* server_component, std::string_view addr, std::string_view uuid);
 	void set_history_tag_sensor(text_sensor::TextSensor* sensor) { history_tag_sensor.reset(sensor); }
 	void set_trigger_type_sensor(sensor::Sensor* sensor) { trigger_type_sensor.reset(sensor); }
-	void set_lock_entity(SesameTriggerLock* lock) {
-		lock_entity.reset(lock);
-		lock_entity->traits.set_supported_states(trigger_lock_states);
-	}
+	void set_lock_entity(SesameTriggerLock* lock) { lock_entity.reset(lock); }
 	void set_connection_sensor(binary_sensor::BinarySensor* sensor) {
 		connection_sensor.reset(sensor);
 		connection_sensor->publish_state(false);
 	}
 	const NimBLEAddress& get_address() const { return address; }
-	libsesame3bt::Sesame::result_code_t invoke(libsesame3bt::Sesame::item_code_t cmd,
-	                                           const std::string& tag,
-	                                           std::optional<libsesame3bt::trigger_type_t> trigger_type);
+	void invoke(libsesame3bt::Sesame::item_code_t cmd,
+	            const std::string& tag,
+	            std::optional<libsesame3bt::trigger_type_t> trigger_type);
 	const std::string& get_history_tag() const { return history_tag; }
 	float get_trigger_type() const { return trigger_type; }
 	bool send_lock_state(lock::LockState state);
 	void update_connected(bool connected);
+	bool has_lock_entity() const { return lock_entity != nullptr; }
 
  private:
 	NimBLEAddress address;
@@ -65,13 +67,9 @@ class SesameTrigger : public event::Event {
 	float trigger_type = NAN;
 
 	static inline const std::set<std::string> supported_triggers{"open", "close", "lock", "unlock"};
-	static inline const std::set<lock::LockState> trigger_lock_states{lock::LOCK_STATE_UNLOCKED, lock::LOCK_STATE_LOCKED,
-	                                                                  lock::LOCK_STATE_JAMMED};
 };
 
 class SesameServerComponent : public Component {
-	friend class SesameTrigger;
-
  public:
 	SesameServerComponent(uint8_t max_sessions, std::string_view uuid);
 	void setup() override;
@@ -87,20 +85,23 @@ class SesameServerComponent : public Component {
 	bool has_trigger(const NimBLEAddress& addr) const;
 	void start_advertising();
 	void stop_advertising();
+	void set_lock_entity(SesameTriggerLock* lock) { lock_entity = lock; }
+	bool send_lock_state(lock::LockState state);
+	bool send_lock_state(const NimBLEAddress* dest, lock::LockState state);
 
  private:
 	libsesame3bt::SesameServer sesame_server;
 	const NimBLEUUID uuid;
 	std::vector<std::unique_ptr<SesameTrigger>> triggers;
-	bool last_status;
 	ESPPreferenceObject prefs_secret;
+	SesameTriggerLock* lock_entity = nullptr;
 
 	bool prepare_secret();
 	bool save_secret(const std::array<std::byte, libsesame3bt::Sesame::SECRET_SIZE>& secret);
-	libsesame3bt::Sesame::result_code_t on_command(const NimBLEAddress& addr,
-	                                               libsesame3bt::Sesame::item_code_t cmd,
-	                                               const std::string tag,
-	                                               std::optional<libsesame3bt::trigger_type_t> trigger_type);
+	void on_command(const NimBLEAddress& addr,
+	                libsesame3bt::Sesame::item_code_t cmd,
+	                const std::string tag,
+	                std::optional<libsesame3bt::trigger_type_t> trigger_type);
 	void on_connected(const NimBLEAddress& addr);
 	void on_disconnect(const NimBLEAddress& addr, int reason);
 };
