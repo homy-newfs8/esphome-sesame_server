@@ -21,7 +21,7 @@ CONF_CONNECTION_SENSOR = "connection_sensor"
 sesame_server_ns = cg.esphome_ns.namespace("sesame_server")
 SesameServerComponent = sesame_server_ns.class_("SesameServerComponent", cg.PollingComponent)
 SesameTrigger = sesame_server_ns.class_("SesameTrigger")
-SesameTriggerLock = sesame_server_ns.class_("SesameTriggerLock", lock.Lock)
+StatusLock = sesame_server_ns.class_("StatusLock", lock.Lock)
 
 CONF_HISTORY_TAG = "history_tag"
 CONF_TRIGGER_TYPE = "trigger_type"
@@ -64,7 +64,7 @@ TRIGGER_SCHEMA = cv.All(
             cv.Optional(CONF_TRIGGER_TYPE): sensor.sensor_schema(),
             cv.Optional(CONF_LOCK): lock.lock_schema().extend(
                 {
-                    cv.GenerateID(): cv.declare_id(SesameTriggerLock),
+                    cv.GenerateID(): cv.declare_id(StatusLock),
                 }
             ),
             cv.Optional(CONF_CONNECTION_SENSOR): binary_sensor.binary_sensor_schema(
@@ -86,7 +86,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_TRIGGERS): cv.ensure_list(TRIGGER_SCHEMA),
             cv.Optional(CONF_LOCK): lock.lock_schema().extend(
                 {
-                    cv.GenerateID(): cv.declare_id(SesameTriggerLock),
+                    cv.GenerateID(): cv.declare_id(StatusLock),
                 }
             ),
         }
@@ -131,7 +131,7 @@ async def to_code(config):
         for trig, tconf in triggers:
             await event.register_event(trig, tconf, event_types=EVENT_TYPES)
 
-    # cg.add_library("libsesame3bt-server", None, "https://github.com/homy-newfs8/libsesame3bt-server#v0.7.0")
+    # cg.add_library("libsesame3bt-server", None, "https://github.com/homy-newfs8/libsesame3bt-server#v0.8.0")
     cg.add_library("libsesame3bt-server", None, "symlink://../../../../../../PlatformIO/Projects/libsesame3bt-server")
     cg.add_library("libsesame3bt-core", None, "symlink://../../../../../../PlatformIO/Projects/libsesame3bt-core")
     cg.add_platformio_option("lib_ldf_mode", "deep")

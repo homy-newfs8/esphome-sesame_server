@@ -210,7 +210,18 @@ SesameServerComponent::stop_advertising() {
 }
 
 void
-SesameTriggerLock::control(const lock::LockCall& call) {
+StatusLock::init() {
+	traits.set_supported_states(trigger_lock_states);
+	add_on_state_callback([this]() {
+		ESP_LOGD(TAG, "Lock callback called");
+		if (!std::visit([this](auto& x) { return x.get().send_lock_state(state); }, parent_)) {
+			ESP_LOGW(TAG, "Failed to send lock state to trigger device");
+		}
+	});
+}
+
+void
+StatusLock::control(const lock::LockCall& call) {
 	ESP_LOGD(TAG, "Sesame Server Trigger Lock control state = %s",
 	         call.get_state().has_value() ? lock_state_to_string(*call.get_state()) : "none");
 	if (!call.get_state().has_value()) {
@@ -218,38 +229,44 @@ SesameTriggerLock::control(const lock::LockCall& call) {
 		return;
 	}
 	state = *call.get_state();
-
 	publish_state(state);
-	bool sent = false;
-	if (!std::visit([this](auto& x) { return x.get().send_lock_state(state); }, parent_)) {
-		ESP_LOGW(TAG, "Failed to send lock state to trigger device");
-	}
 }
 
 bool
 SesameTrigger::send_lock_state(lock::LockState state) {
+	ESP_LOGD(TAG, "send_lock_state on trigger");
 	return server_component->send_lock_state(&address, state);
 }
 
 bool
 SesameServerComponent::send_lock_state(lock::LockState state) {
+	ESP_LOGD(TAG, "send_lock_state on server");
 	return send_lock_state(nullptr, state);
 }
 
 bool
+SesameServerComponent::send_current_lock_state(const NimBLEAddress& address) {
+	if (lock_entity) {
+		return send_lock_state(&address, lock_entity->state);
+	} else {
+		return true;
+	}
+}
+
+bool
 SesameServerComponent::send_lock_state(const NimBLEAddress* address, lock::LockState state) {
-	ESP_LOGD(TAG, "Sending lock state %s to trigger", lock::lock_state_to_string(state));
 	Sesame::mecha_status_5_t sst{};
 	sst.is_stop = true;
-	sst.battery = 10.0f;  // dummy voltage
-	if (state == lock::LOCK_STATE_JAMMED) {
-		sst.is_critical = true;
-		sst.in_lock = false;
-	} else {
-		sst.in_lock = state == lock::LOCK_STATE_LOCKED;
-	}
+	sst.battery = 3 * 1000;  // dummy voltage
+	sst.position = 100;
+	sst.target = -32768;
+	sst.is_stop = true;
+	sst.is_critical = state == lock::LOCK_STATE_JAMMED;
+	sst.in_lock = state == lock::LOCK_STATE_LOCKED;
+	sst.in_unlock = !sst.in_lock;
 	if (address) {
 		if (sesame_server.has_session(*address)) {
+			ESP_LOGD(TAG, "Sending lock state %s to %s", lock::lock_state_to_string(state), address->toString().c_str());
 			return sesame_server.send_mecha_status(address, sst);
 		} else {
 			ESP_LOGW(TAG, "No session, cannot send lock status");
@@ -258,11 +275,16 @@ SesameServerComponent::send_lock_state(const NimBLEAddress* address, lock::LockS
 	} else {
 		bool rc = true;
 		for (auto& trig : triggers) {
+			ESP_LOGD(TAG, "Checking trigger %s", trig->get_address().toString().c_str());
 			if (!trig->has_lock_entity() && sesame_server.has_session(trig->get_address())) {
+				ESP_LOGD(TAG, "Sending lock state %s to %s", lock::lock_state_to_string(state), trig->get_address().toString().c_str());
 				if (!sesame_server.send_mecha_status(&trig->get_address(), sst)) {
 					ESP_LOGW(TAG, "Failed to send lock status to %s", trig->get_address().toString().c_str());
 					rc = false;
 				}
+			} else {
+				ESP_LOGD(TAG, "Skipping trigger %s, has_lock=%u, has_session=%u", trig->get_address().toString().c_str(),
+				         trig->has_lock_entity(), sesame_server.has_session(trig->get_address()));
 			}
 		}
 		return rc;
@@ -297,6 +319,8 @@ SesameTrigger::update_connected(bool connected) {
 	if (connected) {
 		if (lock_entity) {
 			send_lock_state(lock_entity->state);
+		} else {
+			server_component->send_current_lock_state(address);
 		}
 	}
 }
