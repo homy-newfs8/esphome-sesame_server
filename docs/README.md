@@ -34,11 +34,51 @@ r[CANDY HOUSE Remote/nano] -->|lock/unlock| server
 * ESP32シリーズ\
 基本的に[Arduino core for ESP32](https://github.com/espressif/arduino-esp32)がサポートするESP32シリーズはどれでも動作すると思われます。私はArduino core v2.0系を使い、ESP32 C3やESP32 S3で動作確認しています。
 
-# ESPHomeへの本コンポーネントの導入
-本コンポーネントをESP32にインストールするにはESPHomeの[External Component](https://esphome.io/components/external_components.html)として導入します。以下がYAMLファイルの例です。また[サンプルファイル](../example.yaml)も参考にしてください。
+## ESPHomeへの本コンポーネントの導入
+本コンポーネントをESP32にインストールするにはESPHomeの[External Component](https://esphome.io/components/external_components.html)として導入します。[サンプルファイル](../example.yaml)も参考にしてください。
 
-> [!NOTE]
-> このコンポーネントを ESPHome 2025.7.0 以前のバージョンで使う場合は[下記](#少し古いesphomeで使う場合)を参照願います。
+
+```yaml
+external_components:
+  - source:
+      type: git
+      url: https://github.com/homy-newfs8/esphome-sesame_server
+      ref: v0.7.0
+    components: [sesame_server]
+```
+
+## ビルドオプションの指定
+
+使用するESPHomeのバージョンに合わせて設定してください。
+
+同時に多数のSESAME TouchやRemoteと接続する場合には、`CONFIG_BT_NIMBLE_MAX_CONNECTIONS`の値を調整してください(最大9: 増やすほどメモリ使用量が増加します)。Open sensorやRemote nanoは操作した時にしか接続してこないので、同時接続数はある程度小さくても問題ないかもしれません。
+
+`esp32`セクションはインストール先のESP32モジュールに応じて指定します。本コンポーネントでは`framework`として`arduino`を指定する必要があります。`board`は搭載する機器に合わせてください。
+
+### ESPHome 2025.10.0以降
+
+```yaml
+esphome:
+  name: sesame-server-1
+  friendly_name: SesameServer1
+  platformio_options:
+    build_flags:
+      - -Wall -Wextra
+      - -DUSE_FRAMEWORK_MBEDTLS_CMAC
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: arduino
+    sdkconfig_options:
+      CONFIG_BT_ENABLED: y
+      CONFIG_BT_NIMBLE_ENABLED: y
+      # Configure the maximum number of connections as required (maximum: 9)
+      CONFIG_BT_NIMBLE_MAX_CONNECTIONS: "6"
+      CONFIG_BT_NIMBLE_CRYPTO_STACK_MBEDTLS: y
+```
+
+### ESPHome 2025.7.0～2025.9.x
 
 ```yaml
 esphome:
@@ -52,14 +92,6 @@ esphome:
     - -DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=6
     - -DCONFIG_NIMBLE_CPP_LOG_LEVEL=0
     - -DCONFIG_MBEDTLS_CMAC_C	-DUSE_FRAMEWORK_MBEDTLS_CMAC
-external_components:
-- source:
-    type: git
-    url: https://github.com/homy-newfs8/esphome-sesame_server
-    ref: v0.6.0
-  components: [ sesame_server ]
-# - source: '../esphome/esphome/components2'
-#   components: [ sesame_server ]
 
 esp32:
   board: esp32-s3-devkitc-1
@@ -67,11 +99,27 @@ esp32:
     type: arduino
 ```
 
-ポイントは`external_components`セクションと`platformio_options`セクションです。`external_components`には本モジュールのURLを、`platformio_options`セクションには本モジュールをコンパイルするために必要な追加の設定を記述します。
+### ESPHome 2025.7.0以前(あまり古いとコンパイルできないかもしれません)
 
-同時に多数のSESAME TouchやRemoteと接続する場合には、`CONFIG_BT_NIMBLE_MAX_CONNECTIONS`の値を調整してください(最大9: 増やすほどメモリ使用量が増加します)。Open sensorやRemote nanoは操作した時にしか接続してこないので、同時接続数はある程度小さくても問題ないかもしれません。
+```yaml
+esphome:
+  name: sesame-server-1
+  friendly_name: SesameServer1
+  platformio_options:
+    build_flags:
+    - -std=gnu++17 -Wall -Wextra
+    - -DMBEDTLS_DEPRECATED_REMOVED
+# Configure the maximum number of connections as required (maximum: 9)
+    - -DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=6
+    - -DCONFIG_NIMBLE_CPP_LOG_LEVEL=0
+    build_unflags:
+    - -std=gnu++11
 
-`esp32`セクションはインストール先のESP32モジュールに応じて指定します。本コンポーネントでは`framework`として`arduino`を指定する必要があります。
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: arduino
+```
 
 # 本機のUUIDの選定と設定
 
@@ -99,58 +147,67 @@ python -c "import uuid; print(uuid.uuid4())"
 * **id** (*Optional*, string): コード生成に使用される識別子を任意に指定可能。
 * **uuid** (**Required**, string): 本デバイス用UUID
 * **max_sessions** (*Optional*, int): 最大同時セッション数。無指定の場合は3。変更する場合は`platformio_options`セクションの`CONFIG_BT_NIMBLE_MAX_CONNECTIONS`設定も見直したほうが良い。
+* **lock** (*Optional*, [ID](https://esphome.io/guides/configuration-types/#config-id)): 連動させるロックコンポーネント。
 * **triggers** (*Optional*): イベント処理対象のデバイスのリスト(次節)。
-
-`id`は必須ではありませんが、ESPHomeのイベントハンドラから本コンポーネントをターゲットとして呼び出すときに必要です(後述)。C++言語の識別子として適切な文字列を指定します。
 
 > [!NOTE]
 > Version 0.6.0から`address`は指定不要になりました。今のところエラーにしていませんが、指定しても意味はありませんので、設定を見直す際に削除することをお薦めします。
 
+`id`は必須ではありませんが、ESPHomeのイベントハンドラから本コンポーネントをターゲットとして呼び出すときに必要です(後述)。C++言語の識別子として適切な文字列を指定します。利用方法は後述します。
+
+`lock`は主にSESAME Faceの顔認証を無効化するために使用可能です。`lock`には同じ設定ファイル内で定義されている[Lockコンポーネント](https://esphome.io/components/lock/)の[ID](https://esphome.io/guides/configuration-types/#config-id)を指定します。使い方は[後述](#ロック状態の通知-sesame-faceの節電)します。
+
 # 接続するデバイスの指定
-本機が受け付けるSESAME TouchやRemoteのAddressを指定します。指定されていない機器からの接続も(認証が通る分には)許容しますが、ボタンを押してもイベントを発生させません。
+本機が受け付けるSESAME TouchやRemoteのBLE Address(またはUUID)を指定します。指定されていない機器からの接続も(認証が通る分には)許容しますが、ボタンを押してもイベントを発生させません。
 
 ```yaml
 sesame_server:
   id: sesame_server_1
     ⋮
   triggers:
-  - name: Sesame Touch 1
-    id: touch_1
-    address: !secret touch_1_address
-    history_tag:
-      id: touch_1_tag
-      name: "Sesame_Touch_tag"
-    trigger_type:
-      id: touch_1_trigger_type
-      name: "Sesame_Touch_trigger_type"
-    on_event:
-      then:
-        - lambda: |-
-            ESP_LOGD("example", "Event '%s'/'%s' triggered", event_type.c_str(), id(touch_1).get_history_tag().c_str());
-  - name: Remote 1
-    address: !secret remote_address
-    on_event:
-      then:
-        - lambda: |-
-            ESP_LOGD("example", "Event '%s' triggered", event_type.c_str());
+    - name: Sesame Touch 1
+      id: touch_1
+      address: !secret touch_1_address
+      history_tag:
+        id: touch_1_tag
+        name: "Sesame_Touch_tag"
+      trigger_type:
+        id: touch_1_trigger_type
+        name: "Sesame_Touch_trigger_type"
+      on_event:
+        then:
+          - lambda: |-
+              ESP_LOGD("example", "Event '%s'/'%s' triggered", event_type.c_str(), id(touch_1).get_history_tag().c_str());
+    - name: Remote 1
+      address: !secret remote_address
+      on_event:
+        then:
+          - lambda: |-
+              ESP_LOGD("example", "Event '%s' triggered", event_type.c_str());
 ```
 
-`triggers`セクションには複数のデバイスをリストで指定します。デバイスひとつひとつは[Event](https://esphome.io/components/event/index.html)であり、それぞれにイベント受信時の処理(`on_event`)やHome Assistantで表示されるアイコン等を指定することができます。
-
-`history_tag`は[Text Sensor](https://esphome.io/components/text_sensor/#base-text-sensor-configuration)で、SESAME Touch等が`lock`/`unlock`のコマンドに付与してくるタグ値を通知します。SESAME Touch系では指紋やカードにつけたUUIDが通知されるため、それらに応じて処理を分岐させることが可能です。同じ値は[Lambda](https://esphome.io/cookbook/lambda_magic.html)内からはtriggerコンポーネントの`std::string get_history_tag()`で参照可能です。
-
-`trigger_type`は[Sensor](https://esphome.io/components/sensor/#config-sensor)で、SESAME Touch等が通知してくるタイプ値をHome Assistantに通知します。この値についての詳細は[esphome-sesame3のREADME](https://github.com/homy-newfs8/esphome-sesame3/tree/main/docs#history-tag-uuid-and-trigger-type)に記載してあります。センサー値はESPHomeの仕様上はfloat値です。`trigger_type`を含まない命令を受信した場合は`NaN`になります。[Lambda](https://esphome.io/cookbook/lambda_magic.html)内ではtriggerコンポーネントの`float get_trigger_type()`で参照可能です。
+`triggers`セクションには複数のデバイスをリストで指定します。デバイス指定ひとつひとつは[Event](https://esphome.io/components/event/index.html)であり、それぞれにイベント受信時の処理(`on_event`)やHome Assistantで表示されるアイコン等を指定することができます。
 
 ## trigger設定変数
 * **id** (*Optional*, ID): コード生成に使用される識別子を任意に指定可能。
 * **name** (*Optional*, string): イベント名。**id**または**name**のいずれかは必ず指定すること。
-* **address** (**Required**, string): 接続元機器のBluetooth Address。
+* **address** (*Optional*, string): 接続元機器のBluetooth Address。`uuid`か`address`のどちらかを指定する必要があります。
+* **uuid** (*Optional*, string): 接続元機器のUUID。`uuid`か`address`のどちらかを指定する必要があります。
 * **history_tag** (*Optional*, [Text Sensor](https://esphome.io/components/text_sensor/#base-text-sensor-configuration)): 接続元機器が通知してくるTAG文字列を公開するためのテキストセンサー。
 * **trigger_type** (*Optional*, [Sensor](https://esphome.io/components/sensor/#config-sensor)): 接続元機器が通知してくるtrigger種別値。
+* **lock** (*Optional*, [ID](https://esphome.io/guides/configuration-types/#config-id)): 連動させるロックコンポーネント。使用方法は[後述](#ロック状態の通知-sesame-faceの節電)。
 * その他[Event](https://esphome.io/components/event/index.html)コンポーネントに指定可能な値。
 
+`address`と`uuid`はどちらかは指定する必要があります。`uuid`を指定した場合は内部で[SESAME OS3のuuidからBLE Addressを生成するアルゴリズム](https://github.com/CANDY-HOUSE/API_document/blob/master/SesameOS3/101_add_sesame.ja.md#%E3%82%A2%E3%82%AF%E3%83%86%E3%82%A3%E3%83%93%E3%83%86%E3%82%A3%E5%9B%B3%E6%96%B0%E8%A6%8F%E3%82%BB%E3%82%B5%E3%83%9F-5-%E3%82%92%E8%BF%BD%E5%8A%A0)に従ってBLE Addressを生成して使用します。
+
+本コンポーネントでは接続してきた機器のUUIDを知ることはできません。ログ出力においても相手のBLE Addressのみが出力されます。
+
+`history_tag`は[Text Sensor](https://esphome.io/components/text_sensor/#base-text-sensor-configuration)で、SESAME Touch等が`lock`/`unlock`のコマンドに付与してくるタグ値を通知します。SESAME Touch / Faceでは指紋やカードにつけたUUIDが通知されるため、それらに応じて処理を分岐させることが可能です。同じ値は[Lambda](https://esphome.io/cookbook/lambda_magic.html)内からはtriggerコンポーネントの`std::string get_history_tag()`で参照可能です。
+
+`trigger_type`は[Sensor](https://esphome.io/components/sensor/#config-sensor)で、SESAME Touch等が通知してくるタイプ値をHome Assistantに通知します。この値についての詳細は[esphome-sesame3のREADME](https://github.com/homy-newfs8/esphome-sesame3/tree/main/docs#history-tag-uuid-and-trigger-type)に記載してあります。センサー値はESPHomeの仕様上はfloat値です。`trigger_type`を含まない命令を受信した場合は`NaN`になります。[Lambda](https://esphome.io/cookbook/lambda_magic.html)内ではtriggerコンポーネントの`float get_trigger_type()`で参照可能です。
+
 ### 利用デバイスのAddressを調べる
-上記の`triggers`を指定していない場合でも本機へのコマンド送信が行なわれた場合にはログに接続元のAddressが出力されます。以下は`12:32:56:78:90:ab`から`unlock`コマンドを受信した場合の出力例です:
+上記の`triggers`を指定していない場合、本機へのコマンド送信が行なわれた場合にはログに接続元のAddressが出力されます。以下は`12:32:56:78:90:ab`から`unlock`コマンドを受信した場合の出力例です:
 
 ```
 [15:52:36][W][sesame_server:050]: 12:34:56:78:90:ab: cmd=unlock(83), tag="Remote" received from unlisted device
@@ -162,7 +219,7 @@ sesame_server:
 
 1. ESPHomeを設定、コンパイルし起動する(`triggers`以下は未設定でも良い)。未登録デバイスとして動作を開始する。
 1. スマホアプリを起動し&#x2295;を押すと本機が未登録SESAME 5として見えるので登録を実行する(適宜名称を変更すると良い)。
-1. 本機へのイベントトリガーとして使用するRemote / Remote nano / Touch / Touch PRO / Open Sensorの設定画面を開き、「セサミを追加…」から前記で登録した本機を追加する(Remote nano / Open Sensorは要リセット)。
+1. 本機へのイベントトリガーとして使用するRemote / Remote nano / Touch / Open Sensor / Faceの設定画面を開き、「セサミを追加…」から前記で登録した本機を追加する(Remote nano / Open Sensorは要リセット)。
 1. イベントトリガーのRemote等を操作すると本機へのコマンド送信が行なわれるのでログで確認する
 1. ログに記載されているAddressを使って`triggers`セクションを設定する
 
@@ -184,8 +241,8 @@ r[CANDY HOUSE Remote/nano] -->|lock/unlock| server
 ```
 
 イベントハンドラ(`on_event`)内では以下の情報を利用可能です。
-- event_type(イベントタイプ): [Event](https://esphome.io/components/event/index.html)で定義されている文字列。Remote / Touch / スマホ からコマンドを受信した場合は "lock" / "unlock"、 Open Sensorからコマンドを受信した場合は "open" / "close" です。
-- get_history_tag(): イベントハンドラに記述した[Lambda](https://esphome.io/cookbook/lambda_magic.html)コードでトリガーの`id`を使って呼び出すことで、TAG値を取得することが可能です。TAG値はトリガーとなるデバイスによって以下のようになります。
+- event_type(イベントタイプ): [Event](https://esphome.io/components/event/index.html)で定義されている文字列。Remote / Touch / Face / スマホ からコマンドを受信した場合は "lock" / "unlock"、 Open Sensorからコマンドを受信した場合は "open" / "close" です。
+- get_history_tag(): イベントハンドラに記述した[Lambda](https://esphome.io/cookbook/lambda_magic.html)コードでトリガーの`id`を使って呼び出すことで、TAG値を取得することが可能です。TAG値はトリガーとなるデバイスによって以下のようになります(以下の情報はSESAMEファームウェアが2025/5月以前だった場合です。それ以降はデバイスに指紋等を登録したタイミング等によってUUID値が遅られてくる場合があります)。
   - SESAME Touch: 指紋、カードに名前が登録してあればその名前、未登録であれば "SESAME Touch"
   - SESAME Touch PRO: 不明(所有していません)
   - Remote: "Remote"
@@ -221,6 +278,16 @@ output:
     id: gpio_d1
 ```
 上記コードはGPIO21番ピンにLEDが接続されていることを想定しています(Seeed XIAO ESP32S3)。
+
+### ロック状態の通知 (SESAME Faceの節電)
+
+通常、Remote / Touchは相手の状態とは無関係に施錠/開錠コマンドを送ってきますが、Faceは少し特殊で相手が開錠状態であれば顔認証が起動されません(指紋やICカードを使うことは可能で開錠コマンドが発行されます)。
+
+よって、Faceに対して施錠 / 開錠通知を適宜送信することでFaceの顔認証の無効化を制御することが可能になります。
+
+`sesame_server`または`triggers`内に`lock`を指定するとその`lock`の状態が変化する毎に接続されているトリガーデバイスに状態を通知します。
+
+詳しい使用方法は[Face節電サンプル](../face_control.yaml)を参考にしてください。
 
 ### Home Assistantとの連携
 
@@ -297,19 +364,3 @@ button:
       id(sesame_server_1).reset();
 ```
 
-# 少し古いESPHomeで使う場合
-設定ファイルの`esphome:`セクションを以下に置き換えます。
-```yaml
-esphome:
-  name: sesame-server-1
-  friendly_name: SesameServer1
-  platformio_options:
-    build_flags:
-    - -std=gnu++17 -Wall -Wextra
-    - -DMBEDTLS_DEPRECATED_REMOVED
-# Configure the maximum number of connections as required (maximum: 9)
-    - -DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=6
-    - -DCONFIG_NIMBLE_CPP_LOG_LEVEL=0
-    build_unflags:
-    - -std=gnu++11
-```

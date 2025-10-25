@@ -1,0 +1,121 @@
+esphome:
+  name: sesame-server-2
+  friendly_name: SesameServer2
+  platformio_options:
+    build_flags:
+      - -Wall -Wextra
+      - -DUSE_FRAMEWORK_MBEDTLS_CMAC
+
+external_components:
+  - source:
+      type: git
+      url: https://github.com/homy-newfs8/esphome-sesame_server
+      ref: v0.7.0
+    components: [sesame_server]
+  - source:
+      type: git
+      url: https://github.com/homy-newfs8/esphome-sesame3
+      ref: v0.24.0
+    components: [sesame, sesame_ble]
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: arduino
+    sdkconfig_options:
+      CONFIG_BT_ENABLED: y
+      CONFIG_BT_NIMBLE_ENABLED: y
+      # Configure the maximum number of connections as required (maximum: 9)
+      CONFIG_BT_NIMBLE_MAX_CONNECTIONS: "6"
+      CONFIG_BT_NIMBLE_CRYPTO_STACK_MBEDTLS: y
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_passphrase
+
+## Enable logging
+logger:
+  level: DEBUG
+
+## Enable Home Assistant API
+api:
+
+script:
+  # 現在の時刻とSESAMEのロック状態に応じてFaceの節電状態を切り替える
+  - id: publish_face_control
+    then:
+      - lambda: |-
+          auto now = id(my_time).now();
+          boolean is_power_saving = now.hour >= 23 || now.hour <= 7;
+          if (is_power_saving || id(lock_1).state == LOCK_STATE_UNLOCKED) {
+            id(face_control_lock).unlock();
+            ESP_LOGD("example", "Face control: Power saving mode (unlocked)");
+          } else {
+            id(face_control_lock).lock();
+            ESP_LOGD("example", "Face control: Normal mode (locked)");
+          }
+
+time:
+  - platform: homeassistant
+    id: my_time
+    on_time_sync:
+      then:
+        - lambda: |-
+            id(publish_face_control).execute();
+    on_time:
+      - seconds: 0
+        minutes: 0
+        hours: 23, 8
+        then:
+          - lambda: |-
+              id(publish_face_control).execute();
+
+lock:
+  # Faceの節電制御用ロック
+  - platform: template
+    name: "Face Control Lock"
+    id: face_control_lock
+    optimistic: true
+
+sesame:
+  # Faceで施錠/開錠するSESAME
+  - id: sesame1
+    model: sesame_5
+    secret: !secret sesame5_1_secret
+    address: !secret sesame5_1_address
+    lock:
+      name: Lock1
+      id: lock_1
+      fast_notify: true
+      on_lock:
+        then:
+          - lambda: |-
+              id(publish_face_control).execute();
+      on_unlock:
+        then:
+          - lambda: |-
+              id(publish_face_control).execute();
+
+sesame_server:
+  id: sesame_server_2
+  uuid: !secret test2_sesame_server_uuid
+  triggers:
+    # Faceのイベントを処理する
+    - name: Sesame Face 1
+      id: face_1
+      address: !secret face_address
+      lock: face_control_lock
+      on_event:
+        then:
+          # Faceのイベントに応じてSESAMEの施錠状態を更新する
+          - lambda: |-
+              ESP_LOGD("example", "Event '%s'/'%s'/%.0f triggered", event_type.c_str(), id(face_1)->get_history_tag().c_str(), id(face_1)->get_trigger_type());
+              if (event_type == "lock") {
+                id(lock_1).lock();
+              } else if (event_type == "unlock") {
+                id(lock_1).unlock();
+              }

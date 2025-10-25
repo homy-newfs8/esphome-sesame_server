@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.7.0] 2025-10-25
+- Add `lock` parameter to `sesame_server` and `trigger`.
+
 ## [v0.6.0] 2025-09-15
 - Remove `address` parameter requirements from `sesame_server` section.
 
