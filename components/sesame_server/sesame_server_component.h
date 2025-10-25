@@ -22,17 +22,16 @@ enum class state_t : int8_t { not_connected, connecting, authenticating, running
 
 class SesameTrigger;
 class SesameServerComponent;
-class StatusLock : public lock::Lock {
+class StatusLockWrapper {
  public:
-	StatusLock(SesameTrigger* trigger) : parent_(*trigger) { init(); }
-	StatusLock(SesameServerComponent* trigger) : parent_(*trigger) { init(); }
-	void control(const lock::LockCall& call) override;
+	StatusLockWrapper(lock::Lock& lock, SesameTrigger& trigger) : lock_(lock), parent_(trigger) { init(); }
+	StatusLockWrapper(lock::Lock& lock, SesameServerComponent& trigger) : lock_(lock), parent_(trigger) { init(); }
+	lock::LockState get_state() const { return lock_.state; }
 
  private:
 	void init();
+	lock::Lock& lock_;
 	std::variant<std::reference_wrapper<SesameTrigger>, std::reference_wrapper<SesameServerComponent>> parent_;
-	static inline const std::set<lock::LockState> trigger_lock_states{lock::LOCK_STATE_UNLOCKED, lock::LOCK_STATE_LOCKED,
-	                                                                  lock::LOCK_STATE_JAMMED};
 };
 
 class SesameServerComponent;
@@ -41,7 +40,7 @@ class SesameTrigger : public event::Event {
 	SesameTrigger(SesameServerComponent* server_component, std::string_view addr, std::string_view uuid);
 	void set_history_tag_sensor(text_sensor::TextSensor* sensor) { history_tag_sensor.reset(sensor); }
 	void set_trigger_type_sensor(sensor::Sensor* sensor) { trigger_type_sensor.reset(sensor); }
-	void set_lock_entity(StatusLock* lock) { lock_entity.reset(lock); }
+	void set_lock_entity(lock::Lock* lock) { lock_entity = std::make_unique<StatusLockWrapper>(*lock, *this); }
 	void set_connection_sensor(binary_sensor::BinarySensor* sensor) {
 		connection_sensor.reset(sensor);
 		connection_sensor->publish_state(false);
@@ -62,7 +61,7 @@ class SesameTrigger : public event::Event {
 	std::unique_ptr<text_sensor::TextSensor> history_tag_sensor;
 	std::unique_ptr<sensor::Sensor> trigger_type_sensor;
 	std::unique_ptr<binary_sensor::BinarySensor> connection_sensor;
-	std::unique_ptr<StatusLock> lock_entity;
+	std::unique_ptr<StatusLockWrapper> lock_entity;
 
 	std::string history_tag;
 	float trigger_type = NAN;
@@ -86,7 +85,7 @@ class SesameServerComponent : public Component {
 	bool has_trigger(const NimBLEAddress& addr) const;
 	void start_advertising();
 	void stop_advertising();
-	void set_lock_entity(StatusLock* lock) { lock_entity = lock; }
+	void set_lock_entity(lock::Lock* lock) { lock_entity = std::make_unique<StatusLockWrapper>(*lock, *this); }
 	bool send_lock_state(lock::LockState state);
 	bool send_lock_state(const NimBLEAddress* dest, lock::LockState state);
 	bool send_current_lock_state(const NimBLEAddress& address);
@@ -96,7 +95,7 @@ class SesameServerComponent : public Component {
 	const NimBLEUUID uuid;
 	std::vector<std::unique_ptr<SesameTrigger>> triggers;
 	ESPPreferenceObject prefs_secret;
-	StatusLock* lock_entity = nullptr;
+	std::unique_ptr<StatusLockWrapper> lock_entity;
 
 	bool prepare_secret();
 	bool save_secret(const std::array<std::byte, libsesame3bt::Sesame::SECRET_SIZE>& secret);

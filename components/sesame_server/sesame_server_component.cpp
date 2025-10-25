@@ -1,5 +1,4 @@
 #include "sesame_server_component.h"
-#include <Arduino.h>
 #include <esphome/core/application.h>
 #include <esphome/core/log.h>
 
@@ -75,14 +74,6 @@ SesameServerComponent::on_command(const NimBLEAddress& addr,
 		         static_cast<uint8_t>(cmd), tag.c_str());
 	} else {
 		(*trig)->invoke(cmd, tag, trigger_type);
-		// triggerにlockがなく、かつsesame_serverにもlockがない場合、lock/unlockコマンドに対して自動応答する
-		if (!(*trig)->has_lock_entity() && !lock_entity) {
-			if (cmd == Sesame::item_code_t::lock || cmd == Sesame::item_code_t::unlock) {
-				if (!sesame_server.send_lock_status(cmd == Sesame::item_code_t::lock)) {
-					ESP_LOGW(TAG, "Failed to send lock status");
-				}
-			}
-		}
 	}
 }
 
@@ -210,26 +201,13 @@ SesameServerComponent::stop_advertising() {
 }
 
 void
-StatusLock::init() {
-	traits.set_supported_states(trigger_lock_states);
-	add_on_state_callback([this]() {
+StatusLockWrapper::init() {
+	lock_.add_on_state_callback([this]() {
 		ESP_LOGD(TAG, "Lock callback called");
-		if (!std::visit([this](auto& x) { return x.get().send_lock_state(state); }, parent_)) {
+		if (!std::visit([this](auto& x) { return x.get().send_lock_state(lock_.state); }, parent_)) {
 			ESP_LOGW(TAG, "Failed to send lock state to trigger device");
 		}
 	});
-}
-
-void
-StatusLock::control(const lock::LockCall& call) {
-	ESP_LOGD(TAG, "Sesame Server Trigger Lock control state = %s",
-	         call.get_state().has_value() ? lock_state_to_string(*call.get_state()) : "none");
-	if (!call.get_state().has_value()) {
-		ESP_LOGW(TAG, "LockCall without state, ignored");
-		return;
-	}
-	state = *call.get_state();
-	publish_state(state);
 }
 
 bool
@@ -247,7 +225,7 @@ SesameServerComponent::send_lock_state(lock::LockState state) {
 bool
 SesameServerComponent::send_current_lock_state(const NimBLEAddress& address) {
 	if (lock_entity) {
-		return send_lock_state(&address, lock_entity->state);
+		return send_lock_state(&address, lock_entity->get_state());
 	} else {
 		return true;
 	}
@@ -318,7 +296,7 @@ SesameTrigger::update_connected(bool connected) {
 	}
 	if (connected) {
 		if (lock_entity) {
-			send_lock_state(lock_entity->state);
+			send_lock_state(lock_entity->get_state());
 		} else {
 			server_component->send_current_lock_state(address);
 		}
