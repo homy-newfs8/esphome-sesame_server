@@ -2,9 +2,10 @@ import logging
 import string
 
 import esphome.codegen as cg
-from esphome.components import binary_sensor, event, lock, sensor, text_sensor
+from esphome.components import binary_sensor, esp32, event, lock, sensor, text_sensor
 import esphome.config_validation as cv
 from esphome.const import CONF_ADDRESS, CONF_ID, CONF_UUID, DEVICE_CLASS_CONNECTIVITY
+from esphome.core import CORE
 from esphome.types import ConfigType
 
 _LOGGER = logging.getLogger(__name__)
@@ -83,7 +84,6 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_LOCK): cv.use_id(lock.Lock),
         }
     ).extend(cv.COMPONENT_SCHEMA),
-    cv.only_with_arduino,
     warn_address_deprecated,
 )
 
@@ -123,3 +123,7 @@ async def to_code(config):
     # cg.add_library("libsesame3bt-server", None, "symlink://../../../../../../PlatformIO/Projects/libsesame3bt-server")
     # cg.add_library("libsesame3bt-core", None, "symlink://../../../../../../PlatformIO/Projects/libsesame3bt-core")
     # cg.add_platformio_option("lib_ldf_mode", "deep")
+
+    if CORE.using_esp_idf:
+        esp32.add_idf_component(name="h2zero/esp-nimble-cpp", ref="2.3.2")
+        CORE.add_platformio_option("lib_ignore", "NimBLE-Arduino")
