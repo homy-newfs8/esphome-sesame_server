@@ -17,6 +17,8 @@ external_components:
       url: https://github.com/homy-newfs8/esphome-sesame3
       ref: v0.24.0
     components: [sesame, sesame_ble]
+  # - source: "../esphome/esphome/components2"
+  #   components: [sesame_server, sesame, sesame_ble]
 
 esp32:
   board: esp32-s3-devkitc-1
@@ -113,9 +115,9 @@ sesame_server:
         then:
           # Faceのイベントに応じてSESAMEの施錠状態を更新する
           - lambda: |-
-              ESP_LOGD("example", "Event '%s'/'%s'/%.0f triggered", event_type.c_str(), id(face_1)->get_history_tag().c_str(), id(face_1)->get_trigger_type());
+              ESP_LOGD("example", "Event '%s'/'%s'/%.0f triggered", event_type.c_str(), id(face_1)->get_history_tag().c_str(), id(face_1)->get_history_tag_type());
               if (event_type == "lock") {
-                id(lock_1).lock();
+                id(lock_1).lock(id(face_1)->get_history_tag_type(), id(face_1)->get_history_tag());
               } else if (event_type == "unlock") {
-                id(lock_1).unlock();
+                id(lock_1).unlock(id(face_1)->get_history_tag_type(), id(face_1)->get_history_tag());
               }

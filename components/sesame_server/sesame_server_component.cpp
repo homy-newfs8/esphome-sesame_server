@@ -64,7 +64,7 @@ void
 SesameServerComponent::on_command(const NimBLEAddress& addr,
                                   Sesame::item_code_t cmd,
                                   const std::string tag,
-                                  std::optional<libsesame3bt::trigger_type_t> trigger_type) {
+                                  std::optional<libsesame3bt::history_tag_type_t> history_tag_type) {
 	ESP_LOGD(TAG, "cmd=%s(%u), tag=\"%s\" received from %s", event_name(cmd), static_cast<uint8_t>(cmd), tag.c_str(),
 	         addr.toString().c_str());
 	if (auto trig = std::find_if(std::cbegin(triggers), std::cend(triggers),
@@ -73,7 +73,7 @@ SesameServerComponent::on_command(const NimBLEAddress& addr,
 		ESP_LOGW(TAG, "%s: cmd=%s(%u), tag=\"%s\" received from unlisted device", addr.toString().c_str(), event_name(cmd),
 		         static_cast<uint8_t>(cmd), tag.c_str());
 	} else {
-		(*trig)->invoke(cmd, tag, trigger_type);
+		(*trig)->invoke(cmd, tag, history_tag_type);
 	}
 }
 
@@ -89,8 +89,8 @@ SesameServerComponent::setup() {
 			ESP_LOGI(TAG, "SESAME registered by %s", addr.toString().c_str());
 		});
 	}
-	sesame_server.set_on_command_callback([this](const auto& addr, auto item_code, const auto& tag, auto trigger_type) {
-		defer([this, addr, item_code, tag_str = tag, trigger_type]() { on_command(addr, item_code, tag_str, trigger_type); });
+	sesame_server.set_on_command_callback([this](const auto& addr, auto item_code, const auto& tag, auto history_tag_type) {
+		defer([this, addr, item_code, tag_str = tag, history_tag_type]() { on_command(addr, item_code, tag_str, history_tag_type); });
 		return Sesame::result_code_t::success;
 	});
 	sesame_server.set_on_connect_callback([this](const auto& addr) { defer([this, addr]() { on_connected(addr); }); });
@@ -142,26 +142,28 @@ SesameTrigger::SesameTrigger(SesameServerComponent* server_component, std::strin
 }
 
 static float
-make_float(std::optional<libsesame3bt::trigger_type_t> trigger_type) {
-	if (trigger_type.has_value()) {
-		return static_cast<float>(*trigger_type);
+make_float(std::optional<libsesame3bt::history_tag_type_t> history_tag_type) {
+	if (history_tag_type.has_value()) {
+		return static_cast<float>(*history_tag_type);
 	}
 	return NAN;
 }
 
 void
-SesameTrigger::invoke(Sesame::item_code_t cmd, const std::string& tag, std::optional<libsesame3bt::trigger_type_t> trigger_type) {
+SesameTrigger::invoke(Sesame::item_code_t cmd,
+                      const std::string& tag,
+                      std::optional<libsesame3bt::history_tag_type_t> history_tag_type) {
 	const char* evs = event_name(cmd);
 	if (evs[0] == 0) {
 		return;
 	}
 	history_tag = tag;
-	this->trigger_type = make_float(trigger_type);
+	this->history_tag_type = make_float(history_tag_type);
 	if (history_tag_sensor) {
 		history_tag_sensor->publish_state(tag);
 	}
-	if (trigger_type_sensor) {
-		trigger_type_sensor->publish_state(this->trigger_type);
+	if (history_tag_type_sensor) {
+		history_tag_type_sensor->publish_state(this->history_tag_type);
 	}
 	ESP_LOGD(TAG, "Triggering %s to %s", evs, get_name().c_str());
 	trigger(evs);

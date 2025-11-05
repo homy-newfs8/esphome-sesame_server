@@ -26,6 +26,7 @@ StatusLockWrapper = sesame_server_ns.class_("StatusLockWrapper")
 
 CONF_HISTORY_TAG = "history_tag"
 CONF_TRIGGER_TYPE = "trigger_type"
+CONF_HISTORY_TAG_TYPE = "history_tag_type"
 
 
 def is_hex_string(str, valid_len):
@@ -43,15 +44,24 @@ def valid_hexstring(key, valid_len):
 
 def warn_address_deprecated(config: ConfigType) -> ConfigType:
     if CONF_ADDRESS in config:
-        _LOGGER.warning(
-            "The 'address' option for esphome-sesame_server components is deprecated and has no effect. It will be removed in the future."
-        )
+        _LOGGER.warning("The 'address' option is deprecated and has no effect. It will be removed in the future.")
     return config
 
 
 def validate_address(config: ConfigType) -> ConfigType:
     if CONF_UUID not in config and CONF_ADDRESS not in config:
         raise cv.RequiredFieldInvalid("Either 'uuid' or 'address' is required")
+    return config
+
+
+def warn_trigger_type_deprecated(config: ConfigType) -> ConfigType:
+    if CONF_TRIGGER_TYPE in config:
+        if CONF_HISTORY_TAG_TYPE in config:
+            raise cv.Invalid("Cannot use both 'trigger_type' and 'history_tag_type' options for triggers. Please use only 'history_tag_type'.")
+        config[CONF_HISTORY_TAG_TYPE] = config.pop(CONF_TRIGGER_TYPE)
+        _LOGGER.warning(
+            "The 'trigger_type' option is deprecated. Please use 'history_tag_type' instead. 'trigger_type' will be removed in the future."
+        )
     return config
 
 
@@ -63,6 +73,7 @@ TRIGGER_SCHEMA = cv.All(
             cv.Optional(CONF_UUID): cv.uuid,
             cv.Optional(CONF_HISTORY_TAG): text_sensor.text_sensor_schema(),
             cv.Optional(CONF_TRIGGER_TYPE): sensor.sensor_schema(),
+            cv.Optional(CONF_HISTORY_TAG_TYPE): sensor.sensor_schema(),
             cv.Optional(CONF_LOCK): cv.use_id(lock.Lock),
             cv.Optional(CONF_CONNECTION_SENSOR): binary_sensor.binary_sensor_schema(
                 device_class=DEVICE_CLASS_CONNECTIVITY,
@@ -70,6 +81,7 @@ TRIGGER_SCHEMA = cv.All(
         }
     ),
     validate_address,
+    warn_trigger_type_deprecated,
 )
 
 
@@ -104,9 +116,9 @@ async def to_code(config):
             if CONF_HISTORY_TAG in tconf:
                 t = await text_sensor.new_text_sensor(tconf[CONF_HISTORY_TAG])
                 cg.add(trig.set_history_tag_sensor(t))
-            if CONF_TRIGGER_TYPE in tconf:
-                t = await sensor.new_sensor(tconf[CONF_TRIGGER_TYPE])
-                cg.add(trig.set_trigger_type_sensor(t))
+            if CONF_HISTORY_TAG_TYPE in tconf:
+                t = await sensor.new_sensor(tconf[CONF_HISTORY_TAG_TYPE])
+                cg.add(trig.set_history_tag_type_sensor(t))
             if CONF_LOCK in tconf:
                 lock = await cg.get_variable(tconf[CONF_LOCK])
                 cg.add(trig.set_lock_entity(lock))
@@ -119,7 +131,7 @@ async def to_code(config):
         for trig, tconf in triggers:
             await event.register_event(trig, tconf, event_types=EVENT_TYPES)
 
-    cg.add_library("libsesame3bt-server", None, "https://github.com/homy-newfs8/libsesame3bt-server#v0.8.0")
+    cg.add_library("libsesame3bt-server", None, "https://github.com/homy-newfs8/libsesame3bt-server#v0.9.0")
     # cg.add_library("libsesame3bt-server", None, "symlink://../../../../../../PlatformIO/Projects/libsesame3bt-server")
     # cg.add_library("libsesame3bt-core", None, "symlink://../../../../../../PlatformIO/Projects/libsesame3bt-core")
     # cg.add_platformio_option("lib_ldf_mode", "deep")

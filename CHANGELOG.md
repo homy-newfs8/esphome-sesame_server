@@ -1,5 +1,10 @@
 # Changelog
 
+## [v0.8.0] 2025-11-05
+- Support esp-idf framework
+- Rename `trigger_type` to `history_tag_type`.
+- Rename lambda call `get_trigger_type()` to `get_history_tag_type()`.
+
 ## [v0.7.0] 2025-10-25
 - Add `lock` parameter to `sesame_server` and `trigger`.
 

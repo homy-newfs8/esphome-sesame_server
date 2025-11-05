@@ -171,9 +171,9 @@ sesame_server:
       history_tag:
         id: touch_1_tag
         name: "Sesame_Touch_tag"
-      trigger_type:
-        id: touch_1_trigger_type
-        name: "Sesame_Touch_trigger_type"
+      history_tag_type:
+        id: touch_1_history_tag_type
+        name: "Sesame_Touch_history_tag_type"
       on_event:
         then:
           - lambda: |-
@@ -194,7 +194,8 @@ sesame_server:
 * **address** (*Optional*, string): 接続元機器のBluetooth Address。`uuid`か`address`のどちらかを指定する必要があります。
 * **uuid** (*Optional*, string): 接続元機器のUUID。`uuid`か`address`のどちらかを指定する必要があります。
 * **history_tag** (*Optional*, [Text Sensor](https://esphome.io/components/text_sensor/#base-text-sensor-configuration)): 接続元機器が通知してくるTAG文字列を公開するためのテキストセンサー。
-* **trigger_type** (*Optional*, [Sensor](https://esphome.io/components/sensor/#config-sensor)): 接続元機器が通知してくるtrigger種別値。
+* **trigger_type** (*Optional*, Sensor): 廃止されました。`history_tag_type`を使ってください。
+* **history_tag_type** (*Optional*, [Sensor](https://esphome.io/components/sensor/#config-sensor)): 接続元機器が通知してくる履歴タグ種別値。
 * **lock** (*Optional*, [ID](https://esphome.io/guides/configuration-types/#config-id)): 連動させるロックコンポーネント。使用方法は[後述](#ロック状態の通知-sesame-faceの節電)。
 * その他[Event](https://esphome.io/components/event/index.html)コンポーネントに指定可能な値。
 
@@ -204,7 +205,7 @@ sesame_server:
 
 `history_tag`は[Text Sensor](https://esphome.io/components/text_sensor/#base-text-sensor-configuration)で、SESAME Touch等が`lock`/`unlock`のコマンドに付与してくるタグ値を通知します。SESAME Touch / Faceでは指紋やカードにつけたUUIDが通知されるため、それらに応じて処理を分岐させることが可能です。同じ値は[Lambda](https://esphome.io/cookbook/lambda_magic.html)内からはtriggerコンポーネントの`std::string get_history_tag()`で参照可能です。
 
-`trigger_type`は[Sensor](https://esphome.io/components/sensor/#config-sensor)で、SESAME Touch等が通知してくるタイプ値をHome Assistantに通知します。この値についての詳細は[esphome-sesame3のREADME](https://github.com/homy-newfs8/esphome-sesame3/tree/main/docs#history-tag-uuid-and-trigger-type)に記載してあります。センサー値はESPHomeの仕様上はfloat値です。`trigger_type`を含まない命令を受信した場合は`NaN`になります。[Lambda](https://esphome.io/cookbook/lambda_magic.html)内ではtriggerコンポーネントの`float get_trigger_type()`で参照可能です。
+`history_tag_type`は[Sensor](https://esphome.io/components/sensor/#config-sensor)で、SESAME Touch等が通知してくるタイプ値をHome Assistantに通知します。この値についての詳細は[esphome-sesame3のREADME](https://github.com/homy-newfs8/esphome-sesame3/tree/main/docs#history-tag-uuid-and-history-tag-type)に記載してあります。センサー値は本ESPHomeの仕様上はfloat値です。`history_tag_type`を含まない命令を受信した場合は`NaN`になります。[Lambda](https://esphome.io/cookbook/lambda_magic.html)内ではtriggerコンポーネントの`float get_history_tag_type()`で参照可能です。
 
 ### 利用デバイスのAddressを調べる
 上記の`triggers`を指定していない場合、本機へのコマンド送信が行なわれた場合にはログに接続元のAddressが出力されます。以下は`12:32:56:78:90:ab`から`unlock`コマンドを受信した場合の出力例です:

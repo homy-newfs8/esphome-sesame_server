@@ -75,13 +75,13 @@ sesame_server:
       history_tag:
         id: touch_1_tag
         name: "Sesame_Touch_tag"
-      trigger_type:
-        id: touch_1_trigger_type
-        name: "Sesame_Touch_trigger_type"
+      history_tag_type:
+        id: touch_1_history_tag_type
+        name: "Sesame_Touch_history_tag_type"
       on_event:
         then:
           - lambda: |-
-              ESP_LOGD("example", "Event '%s'/'%s'/%.0f triggered", event_type.c_str(), id(touch_1)->get_history_tag().c_str(), id(touch_1)->get_trigger_type());
+              ESP_LOGD("example", "Event '%s'/'%s'/%.0f triggered", event_type.c_str(), id(touch_1)->get_history_tag().c_str(), id(touch_1)->get_history_tag_type());
     - name: Remote 1
       address: !secret remote_address
       on_event:
