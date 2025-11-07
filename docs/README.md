@@ -43,7 +43,7 @@ external_components:
   - source:
       type: git
       url: https://github.com/homy-newfs8/esphome-sesame_server
-      ref: v0.7.0
+      ref: v0.8.0
     components: [sesame_server]
 ```
 
@@ -193,6 +193,7 @@ sesame_server:
 * **name** (*Optional*, string): イベント名。**id**または**name**のいずれかは必ず指定すること。
 * **address** (*Optional*, string): 接続元機器のBluetooth Address。`uuid`か`address`のどちらかを指定する必要があります。
 * **uuid** (*Optional*, string): 接続元機器のUUID。`uuid`か`address`のどちらかを指定する必要があります。
+* **connection_sensor** (*Optional*, [Binary Sensor](https://esphome.io/components/binary_sensor/#base-binary-sensor-configuration)): デバイスの接続状態を公開するためのバイナリセンサー。
 * **history_tag** (*Optional*, [Text Sensor](https://esphome.io/components/text_sensor/#base-text-sensor-configuration)): 接続元機器が通知してくるTAG文字列を公開するためのテキストセンサー。
 * **trigger_type** (*Optional*, Sensor): 廃止されました。`history_tag_type`を使ってください。
 * **history_tag_type** (*Optional*, [Sensor](https://esphome.io/components/sensor/#config-sensor)): 接続元機器が通知してくる履歴タグ種別値。
