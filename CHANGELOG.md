@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.8.1] 2025-11-08
+- Fixed compilation error when defining `connection_sensor` in a trigger.
+
 ## [v0.8.0] 2025-11-05
 - Support esp-idf framework
 - Rename `trigger_type` to `history_tag_type`.
