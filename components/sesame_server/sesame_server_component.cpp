@@ -1,6 +1,7 @@
 #include "sesame_server_component.h"
 #include <esphome/core/application.h>
 #include <esphome/core/log.h>
+#include <cmath>
 
 namespace esphome::sesame_server {
 
@@ -65,8 +66,8 @@ SesameServerComponent::on_command(const NimBLEAddress& addr,
                                   Sesame::item_code_t cmd,
                                   const std::string tag,
                                   std::optional<libsesame3bt::history_tag_type_t> history_tag_type) {
-	ESP_LOGD(TAG, "cmd=%s(%u), tag=\"%s\" received from %s", event_name(cmd), static_cast<uint8_t>(cmd), tag.c_str(),
-	         addr.toString().c_str());
+	ESP_LOGD(TAG, "cmd=%s(%u), tag=\"%s\", type=%.0f from=%s", event_name(cmd), static_cast<uint8_t>(cmd), tag.c_str(),
+	         history_tag_type.has_value() ? static_cast<float>(*history_tag_type) : NAN, addr.toString().c_str());
 	if (auto trig = std::find_if(std::cbegin(triggers), std::cend(triggers),
 	                             [&addr](const auto& trigger) { return trigger->get_address() == addr; });
 	    trig == std::cend(triggers)) {
@@ -205,7 +206,7 @@ SesameServerComponent::stop_advertising() {
 void
 StatusLockWrapper::init() {
 	lock_.add_on_state_callback([this]() {
-		ESP_LOGD(TAG, "Lock callback called");
+		ESP_LOGV(TAG, "Lock callback called");
 		if (!std::visit([this](auto& x) { return x.get().send_lock_state(lock_.state); }, parent_)) {
 			ESP_LOGW(TAG, "Failed to send lock state to trigger device");
 		}
@@ -214,13 +215,13 @@ StatusLockWrapper::init() {
 
 bool
 SesameTrigger::send_lock_state(lock::LockState state) {
-	ESP_LOGD(TAG, "send_lock_state on trigger");
+	ESP_LOGV(TAG, "send_lock_state on trigger");
 	return server_component->send_lock_state(&address, state);
 }
 
 bool
 SesameServerComponent::send_lock_state(lock::LockState state) {
-	ESP_LOGD(TAG, "send_lock_state on server");
+	ESP_LOGV(TAG, "send_lock_state on server");
 	return send_lock_state(nullptr, state);
 }
 
@@ -255,7 +256,7 @@ SesameServerComponent::send_lock_state(const NimBLEAddress* address, lock::LockS
 	} else {
 		bool rc = true;
 		for (auto& trig : triggers) {
-			ESP_LOGD(TAG, "Checking trigger %s", trig->get_address().toString().c_str());
+			ESP_LOGV(TAG, "Checking trigger %s", trig->get_address().toString().c_str());
 			if (!trig->has_lock_entity() && sesame_server.has_session(trig->get_address())) {
 				ESP_LOGD(TAG, "Sending lock state %s to %s", lock::lock_state_to_string(state), trig->get_address().toString().c_str());
 				if (!sesame_server.send_mecha_status(&trig->get_address(), sst)) {
@@ -273,21 +274,26 @@ SesameServerComponent::send_lock_state(const NimBLEAddress* address, lock::LockS
 
 void
 SesameServerComponent::on_connected(const NimBLEAddress& addr) {
-	ESP_LOGI(TAG, "%s connected", addr.toString().c_str());
 	if (auto trig = std::find_if(std::cbegin(triggers), std::cend(triggers),
 	                             [&addr](const auto& trigger) { return trigger->get_address() == addr; });
 	    trig != std::cend(triggers)) {
 		(*trig)->update_connected(true);
+		(*trig)->get_name();
+		ESP_LOGI(TAG, "%s (%s) connected", addr.toString().c_str(), (*trig)->get_name().c_str());
+	} else {
+		ESP_LOGI(TAG, "%s (unlisted) connected", addr.toString().c_str());
 	}
 }
 
 void
 SesameServerComponent::on_disconnect(const NimBLEAddress& addr, int reason) {
-	ESP_LOGI(TAG, "%s disconnected, reason=%d", addr.toString().c_str(), reason);
 	if (auto trig = std::find_if(std::cbegin(triggers), std::cend(triggers),
 	                             [&addr](const auto& trigger) { return trigger->get_address() == addr; });
 	    trig != std::cend(triggers)) {
 		(*trig)->update_connected(false);
+		ESP_LOGI(TAG, "%s (%s) disconnected, reason=%d", addr.toString().c_str(), (*trig)->get_name().c_str(), reason);
+	} else {
+		ESP_LOGI(TAG, "%s (unlisted) disconnected, reason=%d", addr.toString().c_str(), reason);
 	}
 }
 
