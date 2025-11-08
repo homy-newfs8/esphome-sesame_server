@@ -125,7 +125,6 @@ async def to_code(config):
             if CONF_CONNECTION_SENSOR in tconf:
                 bconf = tconf[CONF_CONNECTION_SENSOR]
                 bs = await binary_sensor.new_binary_sensor(bconf)
-                await binary_sensor.register_binary_sensor(bs, bconf)
                 cg.add(trig.set_connection_sensor(bs))
             cg.add(var.add_trigger(trig))
         for trig, tconf in triggers:
