@@ -8,6 +8,7 @@
 #include <esphome/components/text_sensor/text_sensor.h>
 #include <esphome/core/component.h>
 #include <esphome/core/preferences.h>
+#include <esphome/core/version.h>
 #include <functional>
 #include <memory>
 #include <set>
@@ -69,8 +70,9 @@ class SesameTrigger : public event::Event {
 
 	std::string history_tag;
 	float history_tag_type = NAN;
-
+#if ESPHOME_VERSION_CODE < VERSION_CODE(2025, 11, 0)
 	static inline const std::set<std::string> supported_triggers{"open", "close", "lock", "unlock"};
+#endif
 };
 
 class SesameServerComponent : public Component {

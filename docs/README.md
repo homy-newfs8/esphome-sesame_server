@@ -43,7 +43,7 @@ external_components:
   - source:
       type: git
       url: https://github.com/homy-newfs8/esphome-sesame_server
-      ref: v0.8.1
+      ref: v0.8.2
     components: [sesame_server]
 ```
 

@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.8.2] 2025-11-23
+- Support ESPHome 2025.11.0.
+
 ## [v0.8.1] 2025-11-08
 - Fixed compilation error when defining `connection_sensor` in a trigger.
 

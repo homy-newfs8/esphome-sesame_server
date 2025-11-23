@@ -139,7 +139,11 @@ SesameTrigger::SesameTrigger(SesameServerComponent* server_component, std::strin
 		server_component->mark_failed();
 		return;
 	}
+#if ESPHOME_VERSION_CODE >= VERSION_CODE(2025, 11, 0)
+	set_event_types({"open", "close", "lock", "unlock"});
+#else
 	set_event_types(supported_triggers);
+#endif
 }
 
 static float
