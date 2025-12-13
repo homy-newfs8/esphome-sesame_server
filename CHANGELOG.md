@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.8.3] 2025-12-13
+- Fix UUID history_tag not retrieved by updated devices (Touch / Remote / Face).
+
 ## [v0.8.2] 2025-11-23
 - Support ESPHome 2025.11.0.
 
