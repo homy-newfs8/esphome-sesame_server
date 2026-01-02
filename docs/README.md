@@ -177,13 +177,14 @@ sesame_server:
       on_event:
         then:
           - lambda: |-
-              ESP_LOGD("example", "Event '%s'/'%s' triggered", event_type.c_str(), id(touch_1).get_history_tag().c_str());
+              ESP_LOGD("example", "Touch '%s'/'%s'/%.0f/%.2fV/%.1f%% triggered", event_type.c_str(), id(touch_1)->get_history_tag().c_str(), id(touch_1)->get_history_tag_type(), id(touch_1)->get_scaled_voltage(), id(touch_1)->get_battery_pct());
     - name: Remote 1
+      id: remote_1
       address: !secret remote_address
       on_event:
         then:
           - lambda: |-
-              ESP_LOGD("example", "Event '%s' triggered", event_type.c_str());
+              ESP_LOGD("example", "Remote '%s'/'%s'/%.0f/%.2fV/%.1f%% triggered", event_type.c_str(), id(remote_1)->get_history_tag().c_str(), id(remote_1)->get_history_tag_type(), id(remote_1)->get_scaled_voltage(), id(remote_1)->get_battery_pct());
 ```
 
 `triggers`セクションには複数のデバイスをリストで指定します。デバイス指定ひとつひとつは[Event](https://esphome.io/components/event/index.html)であり、それぞれにイベント受信時の処理(`on_event`)やHome Assistantで表示されるアイコン等を指定することができます。
@@ -194,9 +195,15 @@ sesame_server:
 * **address** (*Optional*, string): 接続元機器のBluetooth Address。`uuid`か`address`のどちらかを指定する必要があります。
 * **uuid** (*Optional*, string): 接続元機器のUUID。`uuid`か`address`のどちらかを指定する必要があります。
 * **connection_sensor** (*Optional*, [Binary Sensor](https://esphome.io/components/binary_sensor/#base-binary-sensor-configuration)): デバイスの接続状態を公開するためのバイナリセンサー。
-* **history_tag** (*Optional*, [Text Sensor](https://esphome.io/components/text_sensor/#base-text-sensor-configuration)): 接続元機器が通知してくるTAG文字列を公開するためのテキストセンサー。
+* **history_tag** (*Optional*, [Text Sensor](https://esphome.io/components/text_sensor/#base-text-sensor-configuration)): 接続元機器が通知してくるTAG文字列を公開するためのテキストセンサー。\
+SESAME Touch等が`lock`/`unlock`のコマンドに付与してくるタグ値を通知します。SESAME Touch / Faceでは指紋やカードにつけたUUIDが通知されるため、それらに応じて処理を分岐させることが可能です。
 * **trigger_type** (*Optional*, Sensor): 廃止されました。`history_tag_type`を使ってください。
-* **history_tag_type** (*Optional*, [Sensor](https://esphome.io/components/sensor/#config-sensor)): 接続元機器が通知してくる履歴タグ種別値。
+* **history_tag_type** (*Optional*, [Sensor](https://esphome.io/components/sensor/#config-sensor)): 接続元機器が通知してくる履歴タグ種別値。\
+SESAME Touch等が通知してくるタイプ値をHome Assistantに通知します。この値についての詳細は[esphome-sesame3のREADME](https://github.com/homy-newfs8/esphome-sesame3/tree/main/docs#history-tag-uuid-and-history-tag-type)に記載してあります。センサー値は本ESPHomeの仕様上はfloat値です。`history_tag_type`を含まない命令を受信した場合、値は`NaN`になります。
+* **scaled_voltage** (*Optional*, [Sensor](https://esphome.io/components/sensor/#config-sensor)): 接続元機器が通知してくる電圧値(電池2本換算)。\
+電圧が通知されない場合、値は`NaN`。
+* **battery_pct** (*Optional*, [Sensor](https://esphome.io/components/sensor/#config-sensor)): 接続元機器が通知してくる電圧値をバッテリー残量(%)に換算した値。\
+電圧が通知されない場合、値は`NaN`。
 * **lock** (*Optional*, [ID](https://esphome.io/guides/configuration-types/#config-id)): 連動させるロックコンポーネント。使用方法は[後述](#ロック状態の通知-sesame-faceの節電)。
 * その他[Event](https://esphome.io/components/event/index.html)コンポーネントに指定可能な値。
 
@@ -204,9 +211,9 @@ sesame_server:
 
 本コンポーネントでは接続してきた機器のUUIDを知ることはできません。ログ出力においても相手のBLE Addressのみが出力されます。
 
-`history_tag`は[Text Sensor](https://esphome.io/components/text_sensor/#base-text-sensor-configuration)で、SESAME Touch等が`lock`/`unlock`のコマンドに付与してくるタグ値を通知します。SESAME Touch / Faceでは指紋やカードにつけたUUIDが通知されるため、それらに応じて処理を分岐させることが可能です。同じ値は[Lambda](https://esphome.io/cookbook/lambda_magic.html)内からはtriggerコンポーネントの`std::string get_history_tag()`で参照可能です。
+2025後半以降のファームウェアではSESAME Touch等はコマンド送信時に自身の電圧を送信してきます。Open SensorやRemote等のバッテリー1本で動作するデバイスにおいてもバッテリー2本分に換算した値が送信されるようです。
 
-`history_tag_type`は[Sensor](https://esphome.io/components/sensor/#config-sensor)で、SESAME Touch等が通知してくるタイプ値をHome Assistantに通知します。この値についての詳細は[esphome-sesame3のREADME](https://github.com/homy-newfs8/esphome-sesame3/tree/main/docs#history-tag-uuid-and-history-tag-type)に記載してあります。センサー値は本ESPHomeの仕様上はfloat値です。`history_tag_type`を含まない命令を受信した場合は`NaN`になります。[Lambda](https://esphome.io/cookbook/lambda_magic.html)内ではtriggerコンポーネントの`float get_history_tag_type()`で参照可能です。
+なお、デバイスによっては施錠時にしか電圧を通知しないようです。
 
 ### 利用デバイスのAddressを調べる
 上記の`triggers`を指定していない場合、本機へのコマンド送信が行なわれた場合にはログに接続元のAddressが出力されます。以下は`12:32:56:78:90:ab`から`unlock`コマンドを受信した場合の出力例です:
@@ -243,14 +250,17 @@ r[CANDY HOUSE Remote/nano] -->|lock/unlock| server
 ```
 
 イベントハンドラ(`on_event`)内では以下の情報を利用可能です。
-- event_type(イベントタイプ): [Event](https://esphome.io/components/event/index.html)で定義されている文字列。Remote / Touch / Face / スマホ からコマンドを受信した場合は "lock" / "unlock"、 Open Sensorからコマンドを受信した場合は "open" / "close" です。
-- get_history_tag(): イベントハンドラに記述した[Lambda](https://esphome.io/cookbook/lambda_magic.html)コードでトリガーの`id`を使って呼び出すことで、TAG値を取得することが可能です。TAG値はトリガーとなるデバイスによって以下のようになります(以下の情報はSESAMEファームウェアが2025/5月以前だった場合です。それ以降はデバイスに指紋等を登録したタイミング等によってUUID値が遅られてくる場合があります)。
+- event_type(イベントタイプ): Touch等の機器から受信したコマンドを識別する文字列(std::string)。Remote / Touch / Face / スマホ からコマンドを受信した場合は "lock" / "unlock"、 Open Sensorからコマンドを受信した場合は "open" / "close" です。
+- get_history_tag(): const std::string&: `history_tag`テキストセンサーで通知される値と同値。イベントハンドラに記述した[Lambda](https://esphome.io/cookbook/lambda_magic.html)コードでトリガーの`id`を使って呼び出すことで、TAG値を取得することが可能です。TAG値はトリガーとなるデバイスによって以下のようになります(以下の情報はSESAMEファームウェアが2025/5月以前だった場合です。それ以降はデバイスに指紋等を登録したタイミング等によってUUID値が送られてくる場合があります)。
   - SESAME Touch: 指紋、カードに名前が登録してあればその名前、未登録であれば "SESAME Touch"
   - SESAME Touch PRO: 不明(所有していません)
   - Remote: "Remote"
   - Remote nano: "Remote Nano"
   - Open Sensor: "Open Sensor"
   - スマホ: アプリの「自分」に登録してある名前
+- get_history_tag_type(): float: `history_tag_type`センサーで通知される値と同値
+- get_scaled_value(): float: `scaled_voltage`センサーで通知される値と同値
+- get_battery_pct(): float: `battery_pct`センサーで通知される値と同値
 
 記述方法は[example.yaml](../example.yaml)を参考にしてください。
 

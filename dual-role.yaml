@@ -3,48 +3,48 @@ esphome:
   friendly_name: SesameDualRole1
   platformio_options:
     build_flags:
-    - -std=gnu++17 -Wall -Wextra
-    - -DMBEDTLS_DEPRECATED_REMOVED
-# Configure the maximum number of connections as required (maximum: 9)
-    - -DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=6
-    - -DCONFIG_NIMBLE_CPP_LOG_LEVEL=0
-    build_unflags:
-    - -std=gnu++11
+      - -Wall -Wextra
+      - -DUSE_FRAMEWORK_MBEDTLS_CMAC
 external_components:
-- source:
-    type: git
-    url: https://github.com/homy-newfs8/esphome-sesame_server
-    ref: v0.2.0
-  components: [ sesame_server ]
-- source:
-    type: git
-    url: https://github.com/homy-newfs8/esphome-sesame3
-    ref: v0.17.0
-  components: [ sesame ]
-# - source: '../esphome/esphome/components2'
-#   components: [ sesame, sesame_server ]
+  # - source:
+  #     type: git
+  #     url: https://github.com/homy-newfs8/esphome-sesame_server
+  #     ref: v0.9.0
+  #   components: [sesame_server]
+  # - source:
+  #     type: git
+  #     url: https://github.com/homy-newfs8/esphome-sesame3
+  #     ref: v0.26.0
+  #   components: [sesame]
+  - source: "../esphome/esphome/components2"
+    components: [sesame, sesame_server]
 
 esp32:
-  board: esp32-c3-devkitm-1
+  board: esp32-s3-devkitc-1
   framework:
     type: arduino
+    sdkconfig_options:
+      CONFIG_BT_ENABLED: y
+      CONFIG_BT_NIMBLE_ENABLED: y
+      # Configure the maximum number of connections as required (maximum: 9)
+      CONFIG_BT_NIMBLE_MAX_CONNECTIONS: "6"
+      CONFIG_BT_NIMBLE_CRYPTO_STACK_MBEDTLS: y
 
 ota:
-- platform: esphome
-  password: !secret ota_password
+  - platform: esphome
+    password: !secret ota_password
 
 wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_passphrase
 
 api:
-  password: !secret api_password
   on_client_connected:
     then:
-    - lambda: |-
-        ESP_LOGI(id(TAG).c_str(), "API client connected, retrieving initial battery state");
-        id(remote_1).update();
-        id(touch_1).update();
+      - lambda: |-
+          ESP_LOGI("example", "API client connected, retrieving initial battery state");
+          id(remote_1).update();
+          id(touch_1).update();
 
 ## Enable logging
 logger:
@@ -55,64 +55,65 @@ sesame_server:
   address: !secret sesame_server_my_address
   uuid: !secret sesame_server_my_uuid
   triggers:
-  - name: Sesame Touch 1
-    id: touch_1
-    address: !secret touch_1_address
-    history_tag:
-      id: touch_1_tag
-      name: "Sesame_Touch_tag"
-    on_event:
-      then:
-        - lambda: |-
-            ESP_LOGD("example", "Event '%s'/'%s' triggered", event_type.c_str(), id(touch_1).get_history_tag().c_str());
-            if (event_type == "unlock" && id(touch_1).get_history_tag() == "Master Key Card") {
-              id(bot_2).run(0);
-            }
-  - name: Remote 1
-    address: !secret remote_address
-    on_event:
-      then:
-        - lambda: |-
-            ESP_LOGD("example", "Event '%s' triggered", event_type.c_str());
-            if (event_type == "lock") {
-              id(bot_2).run(0);
-            } else if (event_type == "unlock") {
-              id(bot_2).run(1);
-            }
+    - name: Sesame Touch 1
+      id: touch_t_1
+      address: !secret touch_1_address
+      history_tag:
+        id: touch_1_tag
+        name: "Sesame_Touch_tag"
+      on_event:
+        then:
+          - lambda: |-
+              ESP_LOGD("example", "Event '%s'/'%s' triggered", event_type.c_str(), id(touch_t_1).get_history_tag().c_str());
+              if (event_type == "unlock" && id(touch_t_1).get_history_tag() == "Master Key Card") {
+                id(bot_2).run(0);
+              }
+    - name: Remote 1
+      address: !secret remote_address
+      on_event:
+        then:
+          - lambda: |-
+              ESP_LOGD("example", "Event '%s' triggered", event_type.c_str());
+              if (event_type == "lock") {
+                id(bot_2).run(0);
+              } else if (event_type == "unlock") {
+                id(bot_2).run(1);
+              }
 
 sesame:
-- id: bot2
-  model: sesame_bot_2
-  address: !secret bot2_address
-  secret: !secret bot2_secret
-  bot:
-    id: bot_2
-- id: remote_1
-  model: remote
-  address: !secret remote_address
-  secret: !secret remote_secret
-  battery_pct:
-    name: Remote battery remaining
-  always_connect: false
-#  update_interval: 3days
-  update_interval: never
-- id: touch_1
-  model: sesame_touch
-  address: !secret touch_1_address
-  battery_pct:
-    name: Touch battery remaining
-  always_connect: false
-  update_interval: never
+  - id: bot2
+    model: sesame_bot_2
+    address: !secret bot2_address
+    secret: !secret bot2_secret
+    bot:
+      id: bot_2
+  - id: remote_1
+    model: remote
+    address: !secret remote_address
+    secret: !secret remote_secret
+    battery_pct:
+      name: Remote battery remaining
+    always_connect: false
+    #  update_interval: 3days
+    update_interval: never
+  - id: touch_1
+    model: sesame_touch
+    address: !secret touch_1_address
+    secret: !secret touch_1_secret
+    battery_pct:
+      name: Touch battery remaining
+    always_connect: false
+    update_interval: never
 
 time:
-- id: time_1
-  platform: homeassistant
-  on_time:
-  - seconds: 0
-    minutes: 5
-    hours: 3
-    days_of_week: SUN
-    then:
-    - lambda: |-
-        ESP_LOGD("example", "Update Remote battery remaining on %s", id(time_1).now().strftime("%Y-%m-%d %H:%M:%S").c_str());
-        id(remote_1).update();
+  - id: time_1
+    platform: homeassistant
+    on_time:
+      - seconds: 0
+        minutes: 5
+        hours: 3
+        days_of_week: SUN
+        then:
+          - lambda: |-
+              ESP_LOGD("example", "Update Remote battery remaining on %s", id(time_1).now().strftime("%Y-%m-%d %H:%M:%S").c_str());
+              id(remote_1).update();

@@ -4,7 +4,17 @@ import string
 import esphome.codegen as cg
 from esphome.components import binary_sensor, esp32, event, lock, sensor, text_sensor
 import esphome.config_validation as cv
-from esphome.const import CONF_ADDRESS, CONF_ID, CONF_UUID, DEVICE_CLASS_CONNECTIVITY
+from esphome.const import (
+    CONF_ADDRESS,
+    CONF_ID,
+    CONF_UUID,
+    DEVICE_CLASS_BATTERY,
+    DEVICE_CLASS_CONNECTIVITY,
+    DEVICE_CLASS_VOLTAGE,
+    STATE_CLASS_MEASUREMENT,
+    UNIT_PERCENT,
+    UNIT_VOLT,
+)
 from esphome.core import CORE
 from esphome.types import ConfigType
 
@@ -27,6 +37,8 @@ StatusLockWrapper = sesame_server_ns.class_("StatusLockWrapper")
 CONF_HISTORY_TAG = "history_tag"
 CONF_TRIGGER_TYPE = "trigger_type"
 CONF_HISTORY_TAG_TYPE = "history_tag_type"
+CONF_SCALED_VOLTAGE = "scaled_voltage"
+CONF_BATTERY_PCT = "battery_pct"
 
 
 def is_hex_string(str, valid_len):
@@ -74,6 +86,18 @@ TRIGGER_SCHEMA = cv.All(
             cv.Optional(CONF_HISTORY_TAG): text_sensor.text_sensor_schema(),
             cv.Optional(CONF_TRIGGER_TYPE): sensor.sensor_schema(),
             cv.Optional(CONF_HISTORY_TAG_TYPE): sensor.sensor_schema(),
+            cv.Optional(CONF_SCALED_VOLTAGE): sensor.sensor_schema(
+                unit_of_measurement=UNIT_VOLT,
+                device_class=DEVICE_CLASS_VOLTAGE,
+                state_class=STATE_CLASS_MEASUREMENT,
+                accuracy_decimals=2,
+            ),
+            cv.Optional(CONF_BATTERY_PCT): sensor.sensor_schema(
+                unit_of_measurement=UNIT_PERCENT,
+                device_class=DEVICE_CLASS_BATTERY,
+                state_class=STATE_CLASS_MEASUREMENT,
+                accuracy_decimals=1,
+            ),
             cv.Optional(CONF_LOCK): cv.use_id(lock.Lock),
             cv.Optional(CONF_CONNECTION_SENSOR): binary_sensor.binary_sensor_schema(
                 device_class=DEVICE_CLASS_CONNECTIVITY,
@@ -119,6 +143,12 @@ async def to_code(config):
             if CONF_HISTORY_TAG_TYPE in tconf:
                 t = await sensor.new_sensor(tconf[CONF_HISTORY_TAG_TYPE])
                 cg.add(trig.set_history_tag_type_sensor(t))
+            if CONF_SCALED_VOLTAGE in tconf:
+                s = await sensor.new_sensor(tconf[CONF_SCALED_VOLTAGE])
+                cg.add(trig.set_scaled_voltage_sensor(s))
+            if CONF_BATTERY_PCT in tconf:
+                s = await sensor.new_sensor(tconf[CONF_BATTERY_PCT])
+                cg.add(trig.set_battery_pct_sensor(s))
             if CONF_LOCK in tconf:
                 lock = await cg.get_variable(tconf[CONF_LOCK])
                 cg.add(trig.set_lock_entity(lock))
@@ -130,10 +160,10 @@ async def to_code(config):
         for trig, tconf in triggers:
             await event.register_event(trig, tconf, event_types=EVENT_TYPES)
 
-    cg.add_library("libsesame3bt-server", None, "https://github.com/homy-newfs8/libsesame3bt-server#v0.9.1")
-    # cg.add_library("libsesame3bt-server", None, "symlink://../../../../../../PlatformIO/Projects/libsesame3bt-server")
-    # cg.add_library("libsesame3bt-core", None, "symlink://../../../../../../PlatformIO/Projects/libsesame3bt-core")
-    # cg.add_platformio_option("lib_ldf_mode", "deep")
+    # cg.add_library("libsesame3bt-server", None, "https://github.com/homy-newfs8/libsesame3bt-server#v0.9.1")
+    cg.add_library("libsesame3bt-server", None, "symlink://../../../../../../PlatformIO/Projects/libsesame3bt-server")
+    cg.add_library("libsesame3bt-core", None, "symlink://../../../../../../PlatformIO/Projects/libsesame3bt-core")
+    cg.add_platformio_option("lib_ldf_mode", "deep")
 
     if CORE.using_esp_idf:
         esp32.add_idf_component(name="h2zero/esp-nimble-cpp", ref="2.3.2")

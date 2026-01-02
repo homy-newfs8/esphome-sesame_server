@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.9.0] 2026-01-XX
+- Add `scaled_voltage`, `battery_pct` sensors and matching getter functions to `sesame_server:` object.
+
 ## [v0.8.3] 2025-12-13
 - Fix UUID history_tag not retrieved by updated devices (Touch / Remote / Face).
 

@@ -1,7 +1,14 @@
 #include "sesame_server_component.h"
 #include <esphome/core/application.h>
 #include <esphome/core/log.h>
+#include <libsesame3bt/ClientCore.h>
+#include <libsesame3bt/util.h>
 #include <cmath>
+#include <optional>
+
+#ifndef LOG_REGISTER_SECRET
+#define LOG_REGISTER_SECRET 0
+#endif
 
 namespace esphome::sesame_server {
 
@@ -15,6 +22,8 @@ constexpr const uint32_t SESAMESERVER_RANDOM = 0x76d18970;
 
 using libsesame3bt::Sesame;
 using libsesame3bt::SesameServer;
+using history_tag_type_t = libsesame3bt::history_tag_type_t;
+using Status = libsesame3bt::core::Status;
 
 static const char*
 event_name(Sesame::item_code_t cmd) {
@@ -65,7 +74,8 @@ void
 SesameServerComponent::on_command(const NimBLEAddress& addr,
                                   Sesame::item_code_t cmd,
                                   const std::string tag,
-                                  std::optional<libsesame3bt::history_tag_type_t> history_tag_type) {
+                                  std::optional<history_tag_type_t> history_tag_type,
+                                  float scaled_voltage) {
 	ESP_LOGD(TAG, "cmd=%s(%u), tag=\"%s\", type=%.0f from=%s", event_name(cmd), static_cast<uint8_t>(cmd), tag.c_str(),
 	         history_tag_type.has_value() ? static_cast<float>(*history_tag_type) : NAN, addr.toString().c_str());
 	if (auto trig = std::find_if(std::cbegin(triggers), std::cend(triggers),
@@ -74,7 +84,7 @@ SesameServerComponent::on_command(const NimBLEAddress& addr,
 		ESP_LOGW(TAG, "%s: cmd=%s(%u), tag=\"%s\" received from unlisted device", addr.toString().c_str(), event_name(cmd),
 		         static_cast<uint8_t>(cmd), tag.c_str());
 	} else {
-		(*trig)->invoke(cmd, tag, history_tag_type);
+		(*trig)->invoke(cmd, tag, history_tag_type, scaled_voltage);
 	}
 }
 
@@ -87,13 +97,20 @@ SesameServerComponent::setup() {
 	if (!sesame_server.is_registered()) {
 		sesame_server.set_on_registration_callback([this](const auto& addr, const auto& secret) {
 			this->save_secret(secret);
+#if LOG_REGISTER_SECRET
+			ESP_LOGD(TAG, "SESAME registered by %s, secret=%s", addr.toString().c_str(),
+			         libsesame3bt::core::util::bin2hex(secret, std::size(secret)).c_str());
+#endif
 			ESP_LOGI(TAG, "SESAME registered by %s", addr.toString().c_str());
 		});
 	}
-	sesame_server.set_on_command_callback([this](const auto& addr, auto item_code, const auto& tag, auto history_tag_type) {
-		defer([this, addr, item_code, tag_str = tag, history_tag_type]() { on_command(addr, item_code, tag_str, history_tag_type); });
-		return Sesame::result_code_t::success;
-	});
+	sesame_server.set_on_command_callback(
+	    [this](const auto& addr, auto item_code, const auto& tag, auto history_tag_type, auto scaled_voltage) {
+		    defer([this, addr, item_code, tag_str = tag, history_tag_type, scaled_voltage]() {
+			    on_command(addr, item_code, tag_str, history_tag_type, scaled_voltage);
+		    });
+		    return Sesame::result_code_t::success;
+	    });
 	sesame_server.set_on_connect_callback([this](const auto& addr) { defer([this, addr]() { on_connected(addr); }); });
 	sesame_server.set_on_disconnect_callback(
 	    [this](const auto& addr, int reason) { defer([this, addr, reason]() { on_disconnect(addr, reason); }); });
@@ -147,7 +164,7 @@ SesameTrigger::SesameTrigger(SesameServerComponent* server_component, std::strin
 }
 
 static float
-make_float(std::optional<libsesame3bt::history_tag_type_t> history_tag_type) {
+make_float(std::optional<history_tag_type_t> history_tag_type) {
 	if (history_tag_type.has_value()) {
 		return static_cast<float>(*history_tag_type);
 	}
@@ -157,18 +174,48 @@ make_float(std::optional<libsesame3bt::history_tag_type_t> history_tag_type) {
 void
 SesameTrigger::invoke(Sesame::item_code_t cmd,
                       const std::string& tag,
-                      std::optional<libsesame3bt::history_tag_type_t> history_tag_type) {
+                      std::optional<history_tag_type_t> history_tag_type,
+                      float scaled_voltage) {
 	const char* evs = event_name(cmd);
 	if (evs[0] == 0) {
 		return;
 	}
 	history_tag = tag;
 	this->history_tag_type = make_float(history_tag_type);
+	this->scaled_voltage = scaled_voltage;
+	if (std::isfinite(scaled_voltage) && history_tag_type.has_value()) {
+		battery_pct = Status::scaled_voltage_to_pct(
+		    scaled_voltage, *history_tag_type == history_tag_type_t::open_sensor || *history_tag_type == history_tag_type_t::remote_nano
+		                        ? Sesame::model_t::open_sensor_1
+		                        : Sesame::model_t::sesame_5);
+	} else {
+		battery_pct = NAN;
+	}
+	// set all sensor states
 	if (history_tag_sensor) {
-		history_tag_sensor->publish_state(tag);
+		history_tag_sensor->state = tag;
 	}
 	if (history_tag_type_sensor) {
-		history_tag_type_sensor->publish_state(this->history_tag_type);
+		history_tag_type_sensor->state = this->history_tag_type;
+	}
+	if (scaled_voltage_sensor) {
+		scaled_voltage_sensor->state = this->scaled_voltage;
+	}
+	if (battery_pct_sensor) {
+		battery_pct_sensor->state = this->battery_pct;
+	}
+	// publish all sensor states
+	if (history_tag_sensor) {
+		history_tag_sensor->publish_state(history_tag_sensor->state);
+	}
+	if (history_tag_type_sensor) {
+		history_tag_type_sensor->publish_state(history_tag_type_sensor->state);
+	}
+	if (scaled_voltage_sensor) {
+		scaled_voltage_sensor->publish_state(scaled_voltage_sensor->state);
+	}
+	if (battery_pct_sensor) {
+		battery_pct_sensor->publish_state(battery_pct_sensor->state);
 	}
 	ESP_LOGD(TAG, "Triggering %s to %s", evs, get_name().c_str());
 	trigger(evs);
@@ -251,7 +298,7 @@ SesameServerComponent::send_lock_state(const NimBLEAddress* address, lock::LockS
 	sst.in_unlock = !sst.in_lock;
 	if (address) {
 		if (sesame_server.has_session(*address)) {
-			ESP_LOGD(TAG, "Sending lock state %s to %s", lock::lock_state_to_string(state), address->toString().c_str());
+			ESP_LOGD(TAG, "Sending lock state %s to %s", LOG_STR_ARG(lock::lock_state_to_string(state)), address->toString().c_str());
 			return sesame_server.send_mecha_status(address, sst);
 		} else {
 			ESP_LOGW(TAG, "No session, cannot send lock status");
@@ -262,7 +309,8 @@ SesameServerComponent::send_lock_state(const NimBLEAddress* address, lock::LockS
 		for (auto& trig : triggers) {
 			ESP_LOGV(TAG, "Checking trigger %s", trig->get_address().toString().c_str());
 			if (!trig->has_lock_entity() && sesame_server.has_session(trig->get_address())) {
-				ESP_LOGD(TAG, "Sending lock state %s to %s", lock::lock_state_to_string(state), trig->get_address().toString().c_str());
+				ESP_LOGD(TAG, "Sending lock state %s to %s", LOG_STR_ARG(lock::lock_state_to_string(state)),
+				         trig->get_address().toString().c_str());
 				if (!sesame_server.send_mecha_status(&trig->get_address(), sst)) {
 					ESP_LOGW(TAG, "Failed to send lock status to %s", trig->get_address().toString().c_str());
 					rc = false;
@@ -282,7 +330,6 @@ SesameServerComponent::on_connected(const NimBLEAddress& addr) {
 	                             [&addr](const auto& trigger) { return trigger->get_address() == addr; });
 	    trig != std::cend(triggers)) {
 		(*trig)->update_connected(true);
-		(*trig)->get_name();
 		ESP_LOGI(TAG, "%s (%s) connected", addr.toString().c_str(), (*trig)->get_name().c_str());
 	} else {
 		ESP_LOGI(TAG, "%s (unlisted) connected", addr.toString().c_str());
@@ -308,9 +355,13 @@ SesameTrigger::update_connected(bool connected) {
 	}
 	if (connected) {
 		if (lock_entity) {
-			send_lock_state(lock_entity->get_state());
+			if (!send_lock_state(lock_entity->get_state())) {
+				ESP_LOGW(TAG, "Failed to send lock state to %s", get_address().toString().c_str());
+			}
 		} else {
-			server_component->send_current_lock_state(address);
+			if (!server_component->send_current_lock_state(address)) {
+				ESP_LOGW(TAG, "Failed to send lock state to %s", get_address().toString().c_str());
+			}
 		}
 	}
 }
