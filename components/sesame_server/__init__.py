@@ -160,10 +160,10 @@ async def to_code(config):
         for trig, tconf in triggers:
             await event.register_event(trig, tconf, event_types=EVENT_TYPES)
 
-    # cg.add_library("libsesame3bt-server", None, "https://github.com/homy-newfs8/libsesame3bt-server#v0.9.1")
-    cg.add_library("libsesame3bt-server", None, "symlink://../../../../../../PlatformIO/Projects/libsesame3bt-server")
-    cg.add_library("libsesame3bt-core", None, "symlink://../../../../../../PlatformIO/Projects/libsesame3bt-core")
-    cg.add_platformio_option("lib_ldf_mode", "deep")
+    cg.add_library("libsesame3bt-server", None, "https://github.com/homy-newfs8/libsesame3bt-server#v0.10.0")
+    # cg.add_library("libsesame3bt-server", None, "symlink://../../../../../../PlatformIO/Projects/libsesame3bt-server")
+    # cg.add_library("libsesame3bt-core", None, "symlink://../../../../../../PlatformIO/Projects/libsesame3bt-core")
+    # cg.add_platformio_option("lib_ldf_mode", "deep")
 
     if CORE.using_esp_idf:
         esp32.add_idf_component(name="h2zero/esp-nimble-cpp", ref="2.3.2")
