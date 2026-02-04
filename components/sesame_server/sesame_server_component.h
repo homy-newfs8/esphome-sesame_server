@@ -65,6 +65,7 @@ class SesameTrigger : public event::Event {
 	bool send_lock_state(lock::LockState state);
 	void update_connected(bool connected);
 	bool has_lock_entity() const { return lock_entity != nullptr; }
+	void notify_lock_state();
 
  private:
 	NimBLEAddress address;
@@ -105,6 +106,7 @@ class SesameServerComponent : public Component {
 	bool send_lock_state(lock::LockState state);
 	bool send_lock_state(const NimBLEAddress* dest, lock::LockState state);
 	bool send_current_lock_state(const NimBLEAddress& address);
+	void notify_lock_state();
 
  private:
 	libsesame3bt::SesameServer sesame_server;

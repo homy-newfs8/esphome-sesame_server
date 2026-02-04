@@ -354,15 +354,27 @@ SesameTrigger::update_connected(bool connected) {
 		connection_sensor->publish_state(connected);
 	}
 	if (connected) {
-		if (lock_entity) {
-			if (!send_lock_state(lock_entity->get_state())) {
-				ESP_LOGW(TAG, "Failed to send lock state to %s", get_address().toString().c_str());
-			}
-		} else {
-			if (!server_component->send_current_lock_state(address)) {
-				ESP_LOGW(TAG, "Failed to send lock state to %s", get_address().toString().c_str());
-			}
+		notify_lock_state();
+	}
+}
+
+void
+SesameTrigger::notify_lock_state() {
+	if (lock_entity) {
+		if (!send_lock_state(lock_entity->get_state())) {
+			ESP_LOGW(TAG, "Failed to send lock state to %s", get_address().toString().c_str());
 		}
+	} else {
+		if (!server_component->send_current_lock_state(address)) {
+			ESP_LOGW(TAG, "Failed to send lock state to %s", get_address().toString().c_str());
+		}
+	}
+}
+
+void
+SesameServerComponent::notify_lock_state() {
+	for (auto& trig : triggers) {
+		trig->notify_lock_state();
 	}
 }
 
