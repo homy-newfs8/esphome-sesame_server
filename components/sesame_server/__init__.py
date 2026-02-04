@@ -20,7 +20,7 @@ from esphome.types import ConfigType
 
 _LOGGER = logging.getLogger(__name__)
 AUTO_LOAD = ["event", "binary_sensor", "lock", "sensor", "text_sensor"]
-DEPENDENCIES = ["event", "binary_sensor", "lock", "sensor", "text_sensor"]
+DEPENDENCIES = ["esp32", "event", "binary_sensor", "lock", "sensor", "text_sensor"]
 CONFLICTS_WITH = ["esp32_ble"]
 
 CONF_TRIGGERS = "triggers"
@@ -165,6 +165,6 @@ async def to_code(config):
     # cg.add_library("libsesame3bt-core", None, "symlink://../../../../../../PlatformIO/Projects/libsesame3bt-core")
     # cg.add_platformio_option("lib_ldf_mode", "deep")
 
-    if CORE.using_esp_idf:
+    if not CORE.using_arduino:
         esp32.add_idf_component(name="h2zero/esp-nimble-cpp", ref="~2.3.4")
         CORE.add_platformio_option("lib_ignore", "NimBLE-Arduino")
