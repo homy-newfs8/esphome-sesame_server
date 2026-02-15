@@ -43,7 +43,7 @@ external_components:
   - source:
       type: git
       url: https://github.com/homy-newfs8/esphome-sesame_server
-      ref: v0.9.0
+      ref: v0.10.0
     components: [sesame_server]
 ```
 
@@ -300,6 +300,21 @@ output:
 `sesame_server`または`triggers`内に`lock`を指定するとその`lock`の状態が変化する毎に接続されているトリガーデバイスに状態を通知します。
 
 詳しい使用方法は[Face節電サンプル](../face_control.yaml)を参考にしてください。
+
+また lambda コールを使って`notify_lock_state()`を呼び出すと、`lock`の状態が変化していなくても任意のタイミングでトリガーデバイスに`lock`の状態を通知することが可能です。
+
+```
+time:
+    ⋮
+  # 30分毎にロック状態を通知する(Faceが状態受信に失敗した場合対策)
+  on_time:
+    - seconds: 0
+      minutes: /30
+      then:
+          - lambda: |-
+              id(sesame_server_1).notify_lock_state();
+
+```
 
 ### Home Assistantとの連携
 
