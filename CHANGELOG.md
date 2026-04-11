@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.11.0] 2026-04-11
+- Bump dependend libraries
+- Ensure compatibility with esphome 2026.4.0
+
 ## [v0.10.0] 2026-02-15
 - Add public function notify_lock_state() to sesame_server component for calling from lambda.
 - Do not use deprecated CORE.using_esp_idf
