@@ -256,7 +256,11 @@ SesameServerComponent::stop_advertising() {
 
 void
 StatusLockWrapper::init() {
+#if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 4, 0)
+	lock_.add_on_state_callback([this](lock::LockState state) {
+#else
 	lock_.add_on_state_callback([this]() {
+#endif
 		ESP_LOGV(TAG, "Lock callback called");
 		if (!std::visit([this](auto& x) { return x.get().send_lock_state(lock_.state); }, parent_)) {
 			ESP_LOGW(TAG, "Failed to send lock state to trigger device");
