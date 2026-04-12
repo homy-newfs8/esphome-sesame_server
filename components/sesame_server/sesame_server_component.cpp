@@ -1,6 +1,7 @@
 #include "sesame_server_component.h"
 #include <esphome/core/application.h>
 #include <esphome/core/log.h>
+#include <esphome/core/version.h>
 #include <libsesame3bt/ClientCore.h>
 #include <libsesame3bt/util.h>
 #include <cmath>

@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.11.1] 2026-04-12
+- More ESPHome 2026.4.0 compatibility
+
 ## [v0.11.0] 2026-04-11
 - Bump dependend libraries
 - Ensure compatibility with esphome 2026.4.0
