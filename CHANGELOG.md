@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.11.2] 2026-05-06
+- Prevent crashes when a lock state is notified before the server starts.
+
 ## [v0.11.1] 2026-04-12
 - More ESPHome 2026.4.0 compatibility
 

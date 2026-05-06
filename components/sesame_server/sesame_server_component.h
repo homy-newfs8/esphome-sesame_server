@@ -114,6 +114,7 @@ class SesameServerComponent : public Component {
 	std::vector<std::unique_ptr<SesameTrigger>> triggers;
 	ESPPreferenceObject prefs_secret;
 	std::unique_ptr<StatusLockWrapper> lock_entity;
+	bool server_started = false;
 
 	bool prepare_secret();
 	bool save_secret(const std::array<std::byte, libsesame3bt::Sesame::SECRET_SIZE>& secret);

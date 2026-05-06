@@ -120,6 +120,7 @@ SesameServerComponent::setup() {
 		mark_failed();
 		return;
 	}
+	server_started = true;
 	ESP_LOGI(TAG, "SESAME Server started as %sregistered on %s", sesame_server.is_registered() ? "" : "not ",
 	         NimBLEDevice::getAddress().toString().c_str());
 }
@@ -232,7 +233,7 @@ SesameServerComponent::disconnect(const NimBLEAddress& addr) {
 
 bool
 SesameServerComponent::has_session(const NimBLEAddress& addr) const {
-	return sesame_server.has_session(addr);
+	return server_started && sesame_server.has_session(addr);
 }
 
 bool
@@ -302,7 +303,7 @@ SesameServerComponent::send_lock_state(const NimBLEAddress* address, lock::LockS
 	sst.in_lock = state == lock::LOCK_STATE_LOCKED;
 	sst.in_unlock = !sst.in_lock;
 	if (address) {
-		if (sesame_server.has_session(*address)) {
+		if (has_session(*address)) {
 			ESP_LOGD(TAG, "Sending lock state %s to %s", LOG_STR_ARG(lock::lock_state_to_string(state)), address->toString().c_str());
 			return sesame_server.send_mecha_status(address, sst);
 		} else {
@@ -313,7 +314,7 @@ SesameServerComponent::send_lock_state(const NimBLEAddress* address, lock::LockS
 		bool rc = true;
 		for (auto& trig : triggers) {
 			ESP_LOGV(TAG, "Checking trigger %s", trig->get_address().toString().c_str());
-			if (!trig->has_lock_entity() && sesame_server.has_session(trig->get_address())) {
+			if (!trig->has_lock_entity() && has_session(trig->get_address())) {
 				ESP_LOGD(TAG, "Sending lock state %s to %s", LOG_STR_ARG(lock::lock_state_to_string(state)),
 				         trig->get_address().toString().c_str());
 				if (!sesame_server.send_mecha_status(&trig->get_address(), sst)) {
@@ -322,7 +323,7 @@ SesameServerComponent::send_lock_state(const NimBLEAddress* address, lock::LockS
 				}
 			} else {
 				ESP_LOGD(TAG, "Skipping trigger %s, has_lock=%u, has_session=%u", trig->get_address().toString().c_str(),
-				         trig->has_lock_entity(), sesame_server.has_session(trig->get_address()));
+				         trig->has_lock_entity(), has_session(trig->get_address()));
 			}
 		}
 		return rc;
