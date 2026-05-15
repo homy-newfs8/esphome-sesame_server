@@ -1,23 +1,25 @@
 esphome:
   name: sesame-server-1
   friendly_name: SesameServer1
+  includes:
+    - <libsesame3bt/util.h>
   platformio_options:
     build_flags:
       - -Wall -Wextra
       - -DUSE_FRAMEWORK_MBEDTLS_CMAC
 external_components:
-  - source:
-      type: git
-      url: https://github.com/homy-newfs8/esphome-sesame_server
-      ref: v0.11.0
-    components: [sesame_server]
-  # - source: "../esphome/esphome/components2"
+  # - source:
+  #     type: git
+  #     url: https://github.com/homy-newfs8/esphome-sesame_server
+  #     ref: v0.11.0
   #   components: [sesame_server]
+  - source: "../esphome/esphome/components2"
+    components: [sesame_server]
 
 esp32:
   board: esp32-s3-devkitc-1
   framework:
-    type: arduino
+    type: esp-idf
     sdkconfig_options:
       CONFIG_BT_ENABLED: y
       CONFIG_BT_NIMBLE_ENABLED: y
@@ -83,10 +85,21 @@ sesame_server:
         name: "Sesame Touch scaled_voltage"
       battery_pct:
         name: "Sesame Touch battery_pct"
+      scaled_voltage2:
+        name: "Sesame Touch scaled_voltage2"
+      battery_pct2:
+        name: "Sesame Touch battery_pct2"
+      extra:
+        name: "Sesame Touch extra"
       on_event:
         then:
           - lambda: |-
-              ESP_LOGD("example", "Touch '%s'/'%s'/%.0f/%.2fV/%.1f%% triggered", event_type.c_str(), id(touch_1)->get_history_tag().c_str(), id(touch_1)->get_history_tag_type(), id(touch_1)->get_scaled_voltage(), id(touch_1)->get_battery_pct());
+              ESP_LOGD("example", "Touch '%s'/'%s'/%.0f/%.2fV/%.1f%%/%.2fV/%.1f%% triggered", event_type.c_str(), id(touch_1)->get_history_tag().c_str(), id(touch_1)->get_history_tag_type(), id(touch_1)->get_scaled_voltage(), id(touch_1)->get_battery_pct(), id(touch_1)->get_scaled_voltage2(), id(touch_1)->get_battery_pct2());
+              if (id(touch_1)->get_extra().length() > 0) {
+                ESP_LOGD("example", "Touch extra: %s", libsesame3bt::core::util::bin2hex(id(touch_1)->get_extra().data(), id(touch_1)->get_extra().length()).c_str());
+              } else {
+                ESP_LOGD("example", "Touch extra: <empty>");
+              }
     - name: Remote 1
       id: remote_1
       address: !secret remote_address

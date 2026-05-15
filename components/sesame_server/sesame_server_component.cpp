@@ -76,7 +76,9 @@ SesameServerComponent::on_command(const NimBLEAddress& addr,
                                   Sesame::item_code_t cmd,
                                   const std::string tag,
                                   std::optional<history_tag_type_t> history_tag_type,
-                                  float scaled_voltage) {
+                                  float scaled_voltage,
+                                  float scaled_voltage2,
+                                  std::string_view extra) {
 	ESP_LOGD(TAG, "cmd=%s(%u), tag=\"%s\", type=%.0f from=%s", event_name(cmd), static_cast<uint8_t>(cmd), tag.c_str(),
 	         history_tag_type.has_value() ? static_cast<float>(*history_tag_type) : NAN, addr.toString().c_str());
 	if (auto trig = std::find_if(std::cbegin(triggers), std::cend(triggers),
@@ -85,7 +87,7 @@ SesameServerComponent::on_command(const NimBLEAddress& addr,
 		ESP_LOGW(TAG, "%s: cmd=%s(%u), tag=\"%s\" received from unlisted device", addr.toString().c_str(), event_name(cmd),
 		         static_cast<uint8_t>(cmd), tag.c_str());
 	} else {
-		(*trig)->invoke(cmd, tag, history_tag_type, scaled_voltage);
+		(*trig)->invoke(cmd, tag, history_tag_type, scaled_voltage, scaled_voltage2, extra);
 	}
 }
 
@@ -105,13 +107,13 @@ SesameServerComponent::setup() {
 			ESP_LOGI(TAG, "SESAME registered by %s", addr.toString().c_str());
 		});
 	}
-	sesame_server.set_on_command_callback(
-	    [this](const auto& addr, auto item_code, const auto& tag, auto history_tag_type, auto scaled_voltage) {
-		    defer([this, addr, item_code, tag_str = tag, history_tag_type, scaled_voltage]() {
-			    on_command(addr, item_code, tag_str, history_tag_type, scaled_voltage);
-		    });
-		    return Sesame::result_code_t::success;
-	    });
+	sesame_server.set_on_command_callback([this](const auto& addr, auto item_code, const auto& tag, auto history_tag_type,
+	                                             auto scaled_voltage, auto scaled_voltage2, auto extra) {
+		defer([this, addr, item_code, tag_str = tag, history_tag_type, scaled_voltage, scaled_voltage2, extra]() {
+			on_command(addr, item_code, tag_str, history_tag_type, scaled_voltage, scaled_voltage2, extra);
+		});
+		return Sesame::result_code_t::success;
+	});
 	sesame_server.set_on_connect_callback([this](const auto& addr) { defer([this, addr]() { on_connected(addr); }); });
 	sesame_server.set_on_disconnect_callback(
 	    [this](const auto& addr, int reason) { defer([this, addr, reason]() { on_disconnect(addr, reason); }); });
@@ -177,7 +179,9 @@ void
 SesameTrigger::invoke(Sesame::item_code_t cmd,
                       const std::string& tag,
                       std::optional<history_tag_type_t> history_tag_type,
-                      float scaled_voltage) {
+                      float scaled_voltage,
+                      float scaled_voltage2,
+                      std::string_view extra) {
 	const char* evs = event_name(cmd);
 	if (evs[0] == 0) {
 		return;
@@ -185,6 +189,8 @@ SesameTrigger::invoke(Sesame::item_code_t cmd,
 	history_tag = tag;
 	this->history_tag_type = make_float(history_tag_type);
 	this->scaled_voltage = scaled_voltage;
+	this->scaled_voltage2 = scaled_voltage2;
+	this->extra = extra;
 	if (std::isfinite(scaled_voltage) && history_tag_type.has_value()) {
 		battery_pct = Status::scaled_voltage_to_pct(
 		    scaled_voltage, *history_tag_type == history_tag_type_t::open_sensor || *history_tag_type == history_tag_type_t::remote_nano
@@ -192,6 +198,14 @@ SesameTrigger::invoke(Sesame::item_code_t cmd,
 		                        : Sesame::model_t::sesame_5);
 	} else {
 		battery_pct = NAN;
+	}
+	if (std::isfinite(scaled_voltage2) && history_tag_type.has_value()) {
+		battery_pct2 = Status::scaled_voltage_to_pct(scaled_voltage2, *history_tag_type == history_tag_type_t::open_sensor ||
+		                                                                      *history_tag_type == history_tag_type_t::remote_nano
+		                                                                  ? Sesame::model_t::open_sensor_1
+		                                                                  : Sesame::model_t::sesame_5);
+	} else {
+		battery_pct2 = NAN;
 	}
 	// set all sensor states
 	if (history_tag_sensor) {
@@ -206,6 +220,15 @@ SesameTrigger::invoke(Sesame::item_code_t cmd,
 	if (battery_pct_sensor) {
 		battery_pct_sensor->state = this->battery_pct;
 	}
+	if (scaled_voltage2_sensor) {
+		scaled_voltage2_sensor->state = this->scaled_voltage2;
+	}
+	if (battery_pct2_sensor) {
+		battery_pct2_sensor->state = this->battery_pct2;
+	}
+	if (extra_sensor) {
+		extra_sensor->state = this->extra;
+	}
 	// publish all sensor states
 	if (history_tag_sensor) {
 		history_tag_sensor->publish_state(history_tag_sensor->state);
@@ -218,6 +241,15 @@ SesameTrigger::invoke(Sesame::item_code_t cmd,
 	}
 	if (battery_pct_sensor) {
 		battery_pct_sensor->publish_state(battery_pct_sensor->state);
+	}
+	if (scaled_voltage2_sensor) {
+		scaled_voltage2_sensor->publish_state(scaled_voltage2_sensor->state);
+	}
+	if (battery_pct2_sensor) {
+		battery_pct2_sensor->publish_state(battery_pct2_sensor->state);
+	}
+	if (extra_sensor) {
+		extra_sensor->publish_state(extra_sensor->state);
 	}
 	ESP_LOGD(TAG, "Triggering %s to %s", evs, get_name().c_str());
 	trigger(evs);

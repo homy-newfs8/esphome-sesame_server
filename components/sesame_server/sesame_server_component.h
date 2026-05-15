@@ -44,6 +44,9 @@ class SesameTrigger : public event::Event {
 	void set_history_tag_type_sensor(sensor::Sensor* sensor) { history_tag_type_sensor.reset(sensor); }
 	void set_scaled_voltage_sensor(sensor::Sensor* sensor) { scaled_voltage_sensor.reset(sensor); }
 	void set_battery_pct_sensor(sensor::Sensor* sensor) { battery_pct_sensor.reset(sensor); }
+	void set_scaled_voltage2_sensor(sensor::Sensor* sensor) { scaled_voltage2_sensor.reset(sensor); }
+	void set_battery_pct2_sensor(sensor::Sensor* sensor) { battery_pct2_sensor.reset(sensor); }
+	void set_extra_sensor(text_sensor::TextSensor* sensor) { extra_sensor.reset(sensor); }
 	void set_lock_entity(lock::Lock* lock) { lock_entity = std::make_unique<StatusLockWrapper>(*lock, *this); }
 	void set_connection_sensor(binary_sensor::BinarySensor* sensor) {
 		connection_sensor.reset(sensor);
@@ -53,7 +56,9 @@ class SesameTrigger : public event::Event {
 	void invoke(libsesame3bt::Sesame::item_code_t cmd,
 	            const std::string& tag,
 	            std::optional<libsesame3bt::history_tag_type_t> history_tag_type,
-	            float scaled_voltage);
+	            float scaled_voltage,
+	            float scaled_voltage2,
+	            std::string_view extra);
 	const std::string& get_history_tag() const { return history_tag; }
 	[[deprecated("Use get_history_tag_type() instead")]]
 	float get_trigger_type() const {
@@ -62,6 +67,9 @@ class SesameTrigger : public event::Event {
 	float get_history_tag_type() const { return history_tag_type; }
 	float get_scaled_voltage() const { return scaled_voltage; }
 	float get_battery_pct() const { return battery_pct; }
+	float get_scaled_voltage2() const { return scaled_voltage2; }
+	float get_battery_pct2() const { return battery_pct2; }
+	const std::string& get_extra() const { return extra; }
 	bool send_lock_state(lock::LockState state);
 	void update_connected(bool connected);
 	bool has_lock_entity() const { return lock_entity != nullptr; }
@@ -76,11 +84,17 @@ class SesameTrigger : public event::Event {
 	std::unique_ptr<StatusLockWrapper> lock_entity;
 	std::unique_ptr<sensor::Sensor> scaled_voltage_sensor;
 	std::unique_ptr<sensor::Sensor> battery_pct_sensor;
+	std::unique_ptr<sensor::Sensor> scaled_voltage2_sensor;
+	std::unique_ptr<sensor::Sensor> battery_pct2_sensor;
+	std::unique_ptr<text_sensor::TextSensor> extra_sensor;
 
 	std::string history_tag;
 	float history_tag_type = NAN;
 	float scaled_voltage = NAN;
+	float scaled_voltage2 = NAN;
 	float battery_pct = NAN;
+	float battery_pct2 = NAN;
+	std::string extra;
 #if ESPHOME_VERSION_CODE < VERSION_CODE(2025, 11, 0)
 	static inline const std::set<std::string> supported_triggers{"open", "close", "lock", "unlock"};
 #endif
@@ -122,7 +136,9 @@ class SesameServerComponent : public Component {
 	                libsesame3bt::Sesame::item_code_t cmd,
 	                const std::string tag,
 	                std::optional<libsesame3bt::history_tag_type_t> history_tag_type,
-	                float scaled_voltage);
+	                float scaled_voltage,
+	                float scaled_voltage2,
+	                std::string_view extra);
 	void on_connected(const NimBLEAddress& addr);
 	void on_disconnect(const NimBLEAddress& addr, int reason);
 };

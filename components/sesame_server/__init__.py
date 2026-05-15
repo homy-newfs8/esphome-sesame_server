@@ -39,6 +39,9 @@ CONF_TRIGGER_TYPE = "trigger_type"
 CONF_HISTORY_TAG_TYPE = "history_tag_type"
 CONF_SCALED_VOLTAGE = "scaled_voltage"
 CONF_BATTERY_PCT = "battery_pct"
+CONF_SCALED_VOLTAGE2 = "scaled_voltage2"
+CONF_BATTERY_PCT2 = "battery_pct2"
+CONF_EXTRA = "extra"
 
 
 def is_hex_string(str, valid_len):
@@ -98,6 +101,19 @@ TRIGGER_SCHEMA = cv.All(
                 state_class=STATE_CLASS_MEASUREMENT,
                 accuracy_decimals=1,
             ),
+            cv.Optional(CONF_SCALED_VOLTAGE2): sensor.sensor_schema(
+                unit_of_measurement=UNIT_VOLT,
+                device_class=DEVICE_CLASS_VOLTAGE,
+                state_class=STATE_CLASS_MEASUREMENT,
+                accuracy_decimals=2,
+            ),
+            cv.Optional(CONF_BATTERY_PCT2): sensor.sensor_schema(
+                unit_of_measurement=UNIT_PERCENT,
+                device_class=DEVICE_CLASS_BATTERY,
+                state_class=STATE_CLASS_MEASUREMENT,
+                accuracy_decimals=1,
+            ),
+            cv.Optional(CONF_EXTRA): text_sensor.text_sensor_schema(),
             cv.Optional(CONF_LOCK): cv.use_id(lock.Lock),
             cv.Optional(CONF_CONNECTION_SENSOR): binary_sensor.binary_sensor_schema(
                 device_class=DEVICE_CLASS_CONNECTIVITY,
@@ -149,6 +165,15 @@ async def to_code(config):
             if CONF_BATTERY_PCT in tconf:
                 s = await sensor.new_sensor(tconf[CONF_BATTERY_PCT])
                 cg.add(trig.set_battery_pct_sensor(s))
+            if CONF_SCALED_VOLTAGE2 in tconf:
+                s = await sensor.new_sensor(tconf[CONF_SCALED_VOLTAGE2])
+                cg.add(trig.set_scaled_voltage2_sensor(s))
+            if CONF_BATTERY_PCT2 in tconf:
+                s = await sensor.new_sensor(tconf[CONF_BATTERY_PCT2])
+                cg.add(trig.set_battery_pct2_sensor(s))
+            if CONF_EXTRA in tconf:
+                s = await text_sensor.new_text_sensor(tconf[CONF_EXTRA])
+                cg.add(trig.set_extra_sensor(s))
             if CONF_LOCK in tconf:
                 lock = await cg.get_variable(tconf[CONF_LOCK])
                 cg.add(trig.set_lock_entity(lock))
@@ -160,10 +185,10 @@ async def to_code(config):
         for trig, tconf in triggers:
             await event.register_event(trig, tconf, event_types=EVENT_TYPES)
 
-    cg.add_library("libsesame3bt-server", None, "https://github.com/homy-newfs8/libsesame3bt-server#v0.11.0")
-    # cg.add_library("libsesame3bt-server", None, "symlink://../../../../../../PlatformIO/Projects/libsesame3bt-server")
-    # cg.add_library("libsesame3bt-core", None, "symlink://../../../../../../PlatformIO/Projects/libsesame3bt-core")
-    # cg.add_platformio_option("lib_ldf_mode", "deep")
+    # cg.add_library("libsesame3bt-server", None, "https://github.com/homy-newfs8/libsesame3bt-server#v0.11.0")
+    cg.add_library("libsesame3bt-server", None, "symlink://../../../../../../PlatformIO/Projects/libsesame3bt-server")
+    cg.add_library("libsesame3bt-core", None, "symlink://../../../../../../PlatformIO/Projects/libsesame3bt-core")
+    cg.add_platformio_option("lib_ldf_mode", "deep")
 
     if not CORE.using_arduino:
         esp32.add_idf_component(name="h2zero/esp-nimble-cpp", ref="~2.5.0")
