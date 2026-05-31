@@ -8,13 +8,13 @@ esphome:
       - -Wall -Wextra
       - -DUSE_FRAMEWORK_MBEDTLS_CMAC
 external_components:
-  # - source:
-  #     type: git
-  #     url: https://github.com/homy-newfs8/esphome-sesame_server
-  #     ref: v0.11.0
-  #   components: [sesame_server]
-  - source: "../esphome/esphome/components2"
+  - source:
+      type: git
+      url: https://github.com/homy-newfs8/esphome-sesame_server
+      ref: v0.12.0
     components: [sesame_server]
+  # - source: "../esphome/esphome/components2"
+  #   components: [sesame_server]
 
 esp32:
   board: esp32-s3-devkitc-1
@@ -70,7 +70,7 @@ button:
 
 sesame_server:
   id: sesame_server_1
-  uuid: !secret sesame_server_my_uuid
+  uuid: !secret test_sesame_server_uuid
   triggers:
     - name: Sesame Touch 1
       id: touch_1
@@ -107,3 +107,31 @@ sesame_server:
         then:
           - lambda: |-
               ESP_LOGD("example", "Remote '%s'/'%s'/%.0f/%.2fV/%.1f%% triggered", event_type.c_str(), id(remote_1)->get_history_tag().c_str(), id(remote_1)->get_history_tag_type(), id(remote_1)->get_scaled_voltage(), id(remote_1)->get_battery_pct());
+    - name: Open Sensor 2
+      id: open_sensor_2
+      uuid: !secret open_sensor_2_uuid
+      history_tag:
+        name: "Open Sensor 2 history_tag"
+      history_tag_type:
+        name: "Open Sensor 2 history_tag_type"
+      connection_sensor:
+        name: "Open Sensor 2 connection"
+      scaled_voltage:
+        name: "Open Sensor 2 scaled_voltage"
+      battery_pct:
+        name: "Open Sensor 2 battery_pct"
+      scaled_voltage2:
+        name: "Open Sensor 2 scaled_voltage2"
+      battery_pct2:
+        name: "Open Sensor 2 battery_pct2"
+      extra:
+        name: "Open Sensor 2 extra"
+      on_event:
+        then:
+          - lambda: |-
+              ESP_LOGD("example", "Open Sensor 2 '%s'/'%s'/%.0f/%.2fV/%.1f%%/%.2fV/%.1f%% triggered", event_type.c_str(), id(open_sensor_2)->get_history_tag().c_str(), id(open_sensor_2)->get_history_tag_type(), id(open_sensor_2)->get_scaled_voltage(), id(open_sensor_2)->get_battery_pct(), id(open_sensor_2)->get_scaled_voltage2(), id(open_sensor_2)->get_battery_pct2());
+              if (id(open_sensor_2)->get_extra().length() > 0) {
+                ESP_LOGD("example", "Open Sensor 2 extra: %s", libsesame3bt::core::util::bin2hex(id(open_sensor_2)->get_extra().data(), id(open_sensor_2)->get_extra().length()).c_str());
+              } else {
+                ESP_LOGD("example", "Open Sensor 2 extra: <empty>");
+              }

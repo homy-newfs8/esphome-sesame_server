@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.12.0] 2026-05-31
+- Add `scaled_voltate2`, `battery_pct2` sensors and `extra` text_sensor.
+
 ## [v0.11.2] 2026-05-06
 - Prevent crashes when a lock state is notified before the server starts.
 

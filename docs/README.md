@@ -204,6 +204,11 @@ SESAME Touch等が通知してくるタイプ値をHome Assistantに通知しま
 電圧が通知されない場合、値は`NaN`。
 * **battery_pct** (*Optional*, [Sensor](https://esphome.io/components/sensor/#config-sensor)): 接続元機器が通知してくる電圧値をバッテリー残量(%)に換算した値。\
 電圧が通知されない場合、値は`NaN`。
+* **scaled_voltage2** (*Optional*, [Sensor](https://esphome.io/components/sensor/#config-sensor)): 接続元機器が通知してくる電圧値(電池2本換算)。\
+電圧が通知されない場合、値は`NaN`。
+* **battery_pct2** (*Optional*, [Sensor](https://esphome.io/components/sensor/#config-sensor)): 接続元機器が通知してくる電圧値をバッテリー残量(%)に換算した値。\
+電圧が通知されない場合、値は`NaN`。
+* **extra** (*Optional*, [Text Sensor](https://esphome.io/components/text_sensor/#base-text-sensor-configuration)): 接続元機器が通知してくる追加情報を公開するためのテキストセンサー。[追加情報](#coming-soon)を参照。
 * **lock** (*Optional*, [ID](https://esphome.io/guides/configuration-types/#config-id)): 連動させるロックコンポーネント。使用方法は[後述](#ロック状態の通知-sesame-faceの節電)。
 * その他[Event](https://esphome.io/components/event/index.html)コンポーネントに指定可能な値。
 
@@ -259,8 +264,11 @@ r[CANDY HOUSE Remote/nano] -->|lock/unlock| server
   - Open Sensor: "Open Sensor"
   - スマホ: アプリの「自分」に登録してある名前
 - get_history_tag_type(): float: `history_tag_type`センサーで通知される値と同値
-- get_scaled_value(): float: `scaled_voltage`センサーで通知される値と同値
+- get_scaled_volttage(): float: `scaled_voltage`センサーで通知される値と同値
 - get_battery_pct(): float: `battery_pct`センサーで通知される値と同値
+- get_scaled_volttage2(): float: `scaled_voltage2`センサーで通知される値と同値
+- get_battery_pct2(): float: `battery_pct2`センサーで通知される値と同値
+- get_extra(): const std::string&: `extra`テキストセンサーで通知される値と同地
 
 記述方法は[example.yaml](../example.yaml)を参考にしてください。
 
@@ -315,6 +323,19 @@ time:
               id(sesame_server_1).notify_lock_state();
 
 ```
+
+### Open Sensor 2スイッチ状態
+
+Open Sensor 2 (Open Sensorも)はコマンド送信時にバッテリー電圧に加えて(仕様書にない)以下の値を送ってくるようです。
+この値を利用して Open Sensor 2 のスイッチ位置を用いたオートメーションを作ることが可能です。
+以下のデータは `extra` テキストセンサーに16進数に変換した文字列として格納されます(ESPHomeのText Sensorはバイナリデータを直接扱えないようなので)。
+本コンポーネントでは追加で受信した情報を単純に文字列変換して`extra`に格納しているため、今後送信仕様が変更されると格納されるデータも変更を受けることに注意してください。
+
+| Index | Content                                                                                                      |
+|-------|--------------------------------------------------------------------------------------------------------------|
+| 0     | Command (`5a`: Open, `5b`: Close)                                                                        |
+| 1     | Device/State Identifier:<br>`ff`: Open Sensor<br>`00`: Switch Off (Open Sensor 2)<br>`01`: Switch On (Open Sensor 2) |
+
 
 ### Home Assistantとの連携
 
