@@ -25,6 +25,7 @@ using libsesame3bt::Sesame;
 using libsesame3bt::SesameServer;
 using history_tag_type_t = libsesame3bt::history_tag_type_t;
 using Status = libsesame3bt::core::Status;
+namespace util = libsesame3bt::core::util;
 
 static const char*
 event_name(Sesame::item_code_t cmd) {
@@ -102,7 +103,7 @@ SesameServerComponent::setup() {
 			this->save_secret(secret);
 #if LOG_REGISTER_SECRET
 			ESP_LOGD(TAG, "SESAME registered by %s, secret=%s", addr.toString().c_str(),
-			         libsesame3bt::core::util::bin2hex(secret, std::size(secret)).c_str());
+			         util::bin2hex(secret, std::size(secret)).c_str());
 #endif
 			ESP_LOGI(TAG, "SESAME registered by %s", addr.toString().c_str());
 		});
@@ -190,7 +191,7 @@ SesameTrigger::invoke(Sesame::item_code_t cmd,
 	this->history_tag_type = make_float(history_tag_type);
 	this->scaled_voltage = scaled_voltage;
 	this->scaled_voltage2 = scaled_voltage2;
-	this->extra = extra;
+	this->extra = util::bin2hex(extra.data(), extra.size());
 	if (std::isfinite(scaled_voltage) && history_tag_type.has_value()) {
 		battery_pct = Status::scaled_voltage_to_pct(
 		    scaled_voltage, *history_tag_type == history_tag_type_t::open_sensor || *history_tag_type == history_tag_type_t::remote_nano
