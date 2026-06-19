@@ -1,6 +1,7 @@
 import logging
 import string
 
+from esphome import core
 import esphome.codegen as cg
 from esphome.components import binary_sensor, esp32, event, lock, sensor, text_sensor
 import esphome.config_validation as cv
@@ -15,7 +16,7 @@ from esphome.const import (
     UNIT_PERCENT,
     UNIT_VOLT,
 )
-from esphome.core import CORE
+from esphome.core import CORE, ID
 from esphome.types import ConfigType
 
 _LOGGER = logging.getLogger(__name__)
@@ -28,11 +29,23 @@ CONF_MAX_SESSIONS = "max_sessions"
 EVENT_TYPES = ["open", "close", "lock", "unlock"]
 CONF_LOCK = "lock"
 CONF_CONNECTION_SENSOR = "connection_sensor"
+CONF_CONNECT_CHECKS = "connect_checks"
+CONF_POLICY = "policy"
 
 sesame_server_ns = cg.esphome_ns.namespace("sesame_server")
 SesameServerComponent = sesame_server_ns.class_("SesameServerComponent", cg.PollingComponent)
 SesameTrigger = sesame_server_ns.class_("SesameTrigger")
 StatusLockWrapper = sesame_server_ns.class_("StatusLockWrapper")
+SesameServerConnectCheckEntry = sesame_server_ns.class_("SesameServerConnectCheckEntry")
+NimBLEAddress = cg.global_ns.class_("NimBLEAddress")
+ble_addr_t = cg.global_ns.class_("ble_addr_t")
+BLE_ADDR_RANDOM = cg.global_ns.namespace("BLE_ADDR_RANDOM")
+connect_check_policy_t = sesame_server_ns.enum("connect_check_policy_t", True)
+POLICY_VALUES = {
+    "allow": connect_check_policy_t.allow,
+    "deny": connect_check_policy_t.deny,
+}
+
 
 CONF_HISTORY_TAG = "history_tag"
 CONF_TRIGGER_TYPE = "trigger_type"
@@ -125,6 +138,14 @@ TRIGGER_SCHEMA = cv.All(
 )
 
 
+def validate_connect_checks(config):
+    if config[-1][CONF_ADDRESS] != "any" or any(ent[CONF_ADDRESS] == "any" for ent in config[0:-1]):
+        raise cv.Invalid(f"The {CONF_CONNECT_CHECKS} list must contain 'any' as the only and final entry.")
+    if config[-1][CONF_POLICY] not in ("allow", "deny"):
+        raise cv.Invalid(f"Invalid policy for 'any' entry in {CONF_CONNECT_CHECKS} list. Must be 'allow' or 'deny'.")
+    return config
+
+
 CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
@@ -134,14 +155,54 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_MAX_SESSIONS, default=3): cv.int_range(1, 9),
             cv.Optional(CONF_TRIGGERS): cv.ensure_list(TRIGGER_SCHEMA),
             cv.Optional(CONF_LOCK): cv.use_id(lock.Lock),
+            cv.Optional(CONF_CONNECT_CHECKS): cv.All(
+                cv.ensure_list(
+                    cv.Schema(
+                        {
+                            cv.Required(CONF_ADDRESS): cv.Any(cv.one_of("any"), cv.mac_address),
+                            cv.Required(CONF_POLICY): cv.enum(POLICY_VALUES),
+                        }
+                    )
+                ),
+                cv.Length(min=1),
+                validate_connect_checks,
+            ),
         }
     ).extend(cv.COMPONENT_SCHEMA),
     warn_address_deprecated,
 )
 
 
+def mac_to_ints(mac) -> list[int]:
+    return [int(x, 16) for x in str(mac).split(":")]
+
+
+async def to_connect_checks_code(server, config):
+    if len(config) == 0:
+        return
+    cg.add_global(cg.RawStatement("#include <NimBLEAddress.h>"), prepend=True)
+    svarid = ID(f"{server.base}_connect_checks", is_declaration=True, type=SesameServerConnectCheckEntry)
+    checks = []
+    for entry in config:
+        address = [0] * 6 if entry[CONF_ADDRESS] == "any" else mac_to_ints(entry[CONF_ADDRESS])
+        policy = entry[CONF_POLICY]
+        checks.append({"address": address, "policy": policy})
+    initializer = [
+        cg.StructInitializer(
+            SesameServerConnectCheckEntry,
+            ("address", cg.StructInitializer(ble_addr_t, ("type", BLE_ADDR_RANDOM), ("val", check["address"]))),
+            ("policy", check["policy"]),
+        )
+        for check in checks
+    ]
+    svar = cg.static_const_array(svarid, initializer)
+    cg.add(server.set_connect_checks(svar))
+
+
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID], config[CONF_MAX_SESSIONS], str(config[CONF_UUID]))
+    if CONF_CONNECT_CHECKS in config:
+        await to_connect_checks_code(var, config[CONF_CONNECT_CHECKS])
     if CONF_LOCK in config:
         lock = await cg.get_variable(config[CONF_LOCK])
         cg.add(var.set_lock_entity(lock))
@@ -185,10 +246,10 @@ async def to_code(config):
         for trig, tconf in triggers:
             await event.register_event(trig, tconf, event_types=EVENT_TYPES)
 
-    cg.add_library("libsesame3bt-server", None, "https://github.com/homy-newfs8/libsesame3bt-server#v0.12.0")
-    # cg.add_library("libsesame3bt-server", None, "symlink://../../../../../../PlatformIO/Projects/libsesame3bt-server")
-    # cg.add_library("libsesame3bt-core", None, "symlink://../../../../../../PlatformIO/Projects/libsesame3bt-core")
-    # cg.add_platformio_option("lib_ldf_mode", "deep")
+    # cg.add_library("libsesame3bt-server", None, "https://github.com/homy-newfs8/libsesame3bt-server#v0.12.0")
+    cg.add_library("libsesame3bt-server", None, "symlink://../../../../../../../workspace/sesame-dev/libsesame3bt-server")
+    cg.add_library("libsesame3bt-core", None, "symlink://../../../../../../../workspace/sesame-dev/libsesame3bt-core")
+    cg.add_platformio_option("lib_ldf_mode", "deep")
 
     if not CORE.using_arduino:
         esp32.add_idf_component(name="h2zero/esp-nimble-cpp", ref="~2.5.0")
