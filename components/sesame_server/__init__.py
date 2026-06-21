@@ -40,6 +40,7 @@ SesameServerConnectCheckEntry = sesame_server_ns.class_("SesameServerConnectChec
 NimBLEAddress = cg.global_ns.class_("NimBLEAddress")
 ble_addr_t = cg.global_ns.class_("ble_addr_t")
 BLE_ADDR_RANDOM = cg.global_ns.namespace("BLE_ADDR_RANDOM")
+BLE_ADDR_PUBLIC = cg.global_ns.namespace("BLE_ADDR_PUBLIC")
 connect_check_policy_t = sesame_server_ns.enum("connect_check_policy_t", True)
 POLICY_VALUES = {
     "allow": connect_check_policy_t.allow,
@@ -183,15 +184,17 @@ async def to_connect_checks_code(server, config):
     cg.add_global(cg.RawStatement("#include <NimBLEAddress.h>"), prepend=True)
     svarid = ID(f"{server.base}_connect_checks", is_declaration=True, type=SesameServerConnectCheckEntry)
     checks = []
+    zeros = [0] * 6
     for entry in config:
-        address = [0] * 6 if entry[CONF_ADDRESS] == "any" else mac_to_ints(entry[CONF_ADDRESS])
+        address = zeros if entry[CONF_ADDRESS] == "any" else list(reversed(mac_to_ints(entry[CONF_ADDRESS])))
         policy = entry[CONF_POLICY]
         checks.append({"address": address, "policy": policy})
     initializer = [
-        cg.StructInitializer(
-            SesameServerConnectCheckEntry,
-            ("address", cg.StructInitializer(ble_addr_t, ("type", BLE_ADDR_RANDOM), ("val", check["address"]))),
-            ("policy", check["policy"]),
+        SesameServerConnectCheckEntry(
+            NimBLEAddress()
+            if check["address"] == zeros
+            else NimBLEAddress(cg.StructInitializer(ble_addr_t, ("type", BLE_ADDR_RANDOM), ("val", check["address"]))),
+            check["policy"],
         )
         for check in checks
     ]
