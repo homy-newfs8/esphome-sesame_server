@@ -10,7 +10,7 @@ subgraph ESPHome
 end
 
 t[SESAME Touch/PRO<br/>SESAME Face/PRO] -->|lock/unlock| server
-o[Open Sensor] -->|open/close| server
+o[Open Sensor/2] -->|open/close| server
 r[CANDY HOUSE Remote/nano] -->|lock/unlock| server
 ```
 
@@ -34,6 +34,19 @@ r[CANDY HOUSE Remote/nano] -->|lock/unlock| server
 * ESP32シリーズ\
 基本的に[Arduino core for ESP32](https://github.com/espressif/arduino-esp32)がサポートするESP32シリーズはどれでも動作すると思われます。私はArduino core v2.0系を使い、ESP32 C3やESP32 S3で動作確認しています。
 
+# 使用手順
+
+利用する際は以下の順に準備すると良いでしょう。各項目の詳細は以降の章に記載があります。
+
+1. ESPHomeを設定、コンパイルし起動する(`triggers`以下は未設定でも良い)。未登録デバイスとして動作を開始する。\
+(cf. [esphomeへの本コンポーネントの導入](#esphomeへの本コンポーネントの導入))
+1. スマホアプリを起動し&#x2295;を押すと本機が未登録SESAME 5として見えるので登録を実行する(適宜名称を変更すると良い)。
+1. 本機へのイベントトリガーとして使用するRemote / Remote nano / Touch / Open Sensor / Faceの設定画面を開き、「セサミを追加…」から前記で登録した本機を追加する(Remote nano / Open Sensorは要リセット)。
+1. イベントトリガーのRemote等を操作すると本機へのコマンド送信が行なわれるのでログで確認する\
+(cf. [利用デバイスのaddressを調べる](#利用デバイスのaddressを調べる))
+1. ログに記載されているAddressを使って`triggers`セクションを設定する\
+(cf. [接続するデバイスの指定](#接続するデバイスの指定))
+
 ## ESPHomeへの本コンポーネントの導入
 本コンポーネントをESP32にインストールするにはESPHomeの[External Component](https://esphome.io/components/external_components.html)として導入します。[サンプルファイル](../example.yaml)も参考にしてください。
 
@@ -43,7 +56,7 @@ external_components:
   - source:
       type: git
       url: https://github.com/homy-newfs8/esphome-sesame_server
-      ref: v0.11.2
+      ref: v0.13.0
     components: [sesame_server]
 ```
 
@@ -55,8 +68,9 @@ external_components:
 
 `esp32`セクションはインストール先のESP32モジュールに応じて指定します。本コンポーネントでは`framework`として`arduino`を指定する必要があります。`board`は搭載する機器に合わせてください。
 
-### ESPHome 2025.10.0以降
+`esp32.framework.type`は`arduino`も`esp-idf`も選択可能です。他にインストールしたいコンポーネントに合わせて選択してください(ESPHome的には`esp-idf`がメインストリームなようですが)。
 
+例:
 ```yaml
 esphome:
   name: sesame-server-1
@@ -78,8 +92,9 @@ esp32:
       CONFIG_BT_NIMBLE_CRYPTO_STACK_MBEDTLS: y
 ```
 
-### ESPHome 2025.7.0～2025.9.x
+古いESPHomeを使いたい場合のサンプルです。最近は確認していないのでビルドできるかは不明ですが参考まで。
 
+- ESPHome 2025.7.0～2025.9.x
 ```yaml
 esphome:
   name: sesame-server-1
@@ -99,8 +114,7 @@ esp32:
     type: arduino
 ```
 
-### ESPHome 2025.7.0以前(あまり古いとコンパイルできないかもしれません)
-
+- ESPHome 2025.7.0以前
 ```yaml
 esphome:
   name: sesame-server-1
@@ -121,7 +135,7 @@ esp32:
     type: arduino
 ```
 
-# 本機のUUIDの選定と設定
+## 本機のUUIDの選定と設定
 
 SESAME機器はすべて自身のUUIDを持っており、互いの通信において相手を識別するために使用しています。本機で使用するUUIDをyamlファイルに指定します。
 
@@ -149,6 +163,7 @@ python -c "import uuid; print(uuid.uuid4())"
 * **max_sessions** (*Optional*, int): 最大同時セッション数。無指定の場合は3。変更する場合は`platformio_options`セクションの`CONFIG_BT_NIMBLE_MAX_CONNECTIONS`設定も見直したほうが良い。
 * **lock** (*Optional*, [ID](https://esphome.io/guides/configuration-types/#config-id)): 連動させるロックコンポーネント。
 * **triggers** (*Optional*): イベント処理対象のデバイスのリスト(次節)。
+* **connect_checks** (*Optional*): 接続時検査リスト([後述](#接続時検査))。
 
 > [!NOTE]
 > Version 0.6.0から`address`は指定不要になりました。今のところエラーにしていませんが、指定しても意味はありませんので、設定を見直す際に削除することをお薦めします。
@@ -157,8 +172,9 @@ python -c "import uuid; print(uuid.uuid4())"
 
 `lock`は主にSESAME Faceの顔認証を無効化するために使用可能です。`lock`には同じ設定ファイル内で定義されている[Lockコンポーネント](https://esphome.io/components/lock/)の[ID](https://esphome.io/guides/configuration-types/#config-id)を指定します。使い方は[後述](#ロック状態の通知-sesame-faceの節電)します。
 
-# 接続するデバイスの指定
-本機が受け付けるSESAME TouchやRemoteのBLE Address(またはUUID)を指定します。指定されていない機器からの接続も(認証が通る分には)許容しますが、ボタンを押してもイベントを発生させません。
+## 接続するデバイスの指定
+本機が受け付けるSESAME TouchやRemoteのBLE Address(またはUUID)を指定します。指定されていない機器からの接続も(認証が通る分には)許容しますが、ボタンを押してもイベントを発生させません。\
+接続も許容したくない場合には[接続時検査](#接続時検査)を使うことで特定の機器からの接続を即時切断できます。
 
 ```yaml
 sesame_server:
@@ -189,17 +205,18 @@ sesame_server:
 
 `triggers`セクションには複数のデバイスをリストで指定します。デバイス指定ひとつひとつは[Event](https://esphome.io/components/event/index.html)であり、それぞれにイベント受信時の処理(`on_event`)やHome Assistantで表示されるアイコン等を指定することができます。
 
-## trigger設定変数
+### trigger設定変数
 * **id** (*Optional*, ID): コード生成に使用される識別子を任意に指定可能。
 * **name** (*Optional*, string): イベント名。**id**または**name**のいずれかは必ず指定すること。
-* **address** (*Optional*, string): 接続元機器のBluetooth Address。`uuid`か`address`のどちらかを指定する必要があります。
-* **uuid** (*Optional*, string): 接続元機器のUUID。`uuid`か`address`のどちらかを指定する必要があります。
+* **address** (*Optional*, string): 接続元機器のBluetooth Address。`uuid`か`address`のどちらかを指定する必要がある。
+* **uuid** (*Optional*, string): 接続元機器のUUID。`uuid`か`address`のどちらかを指定する必要がある。
 * **connection_sensor** (*Optional*, [Binary Sensor](https://esphome.io/components/binary_sensor/#base-binary-sensor-configuration)): デバイスの接続状態を公開するためのバイナリセンサー。
 * **history_tag** (*Optional*, [Text Sensor](https://esphome.io/components/text_sensor/#base-text-sensor-configuration)): 接続元機器が通知してくるTAG文字列を公開するためのテキストセンサー。\
-SESAME Touch等が`lock`/`unlock`のコマンドに付与してくるタグ値を通知します。SESAME Touch / Faceでは指紋やカードにつけたUUIDが通知されるため、それらに応じて処理を分岐させることが可能です。
-* **trigger_type** (*Optional*, Sensor): 廃止されました。`history_tag_type`を使ってください。
+SESAME Touch等が`lock`/`unlock`のコマンドに付与してくるタグ値を通知する。SESAME Touch / Faceでは指紋やカードにつけたUUIDが通知されるため、それらに応じて処理を分岐させることが可能。
+* **trigger_type** (*Optional*, Sensor): 廃止。`history_tag_type`を使うこと。
 * **history_tag_type** (*Optional*, [Sensor](https://esphome.io/components/sensor/#config-sensor)): 接続元機器が通知してくる履歴タグ種別値。\
-SESAME Touch等が通知してくるタイプ値をHome Assistantに通知します。この値についての詳細は[esphome-sesame3のREADME](https://github.com/homy-newfs8/esphome-sesame3/tree/main/docs#history-tag-uuid-and-history-tag-type)に記載してあります。センサー値は本ESPHomeの仕様上はfloat値です。`history_tag_type`を含まない命令を受信した場合、値は`NaN`になります。
+SESAME Touch等が通知してくるタイプ値をHome Assistantに通知する。この値についての詳細は[esphome-sesame3のREADME](https://github.com/homy-newfs8/esphome-sesame3/tree/main/docs#history-tag-uuid-and-history-tag-type)に記載してあります。センサー値は本ESPHomeの仕様上はfloat値。\
+`history_tag_type`を含まない命令を受信した場合、値は`NaN`。
 * **scaled_voltage** (*Optional*, [Sensor](https://esphome.io/components/sensor/#config-sensor)): 接続元機器が通知してくる電圧値(電池2本換算)。\
 電圧が通知されない場合、値は`NaN`。
 * **battery_pct** (*Optional*, [Sensor](https://esphome.io/components/sensor/#config-sensor)): 接続元機器が通知してくる電圧値をバッテリー残量(%)に換算した値。\
@@ -229,14 +246,32 @@ SESAME Touch等が通知してくるタイプ値をHome Assistantに通知しま
 
 また、[esphome-sesame3](https://github.com/homy-newfs8/esphome-sesame3)に含まれる`sesame_ble`を使うと、近くにあるSESAME TouchやCANDY HOUSE RemoteのAddressを調べることが可能です。
 
-# 使用方法
+## 接続時検査
 
-1. ESPHomeを設定、コンパイルし起動する(`triggers`以下は未設定でも良い)。未登録デバイスとして動作を開始する。
-1. スマホアプリを起動し&#x2295;を押すと本機が未登録SESAME 5として見えるので登録を実行する(適宜名称を変更すると良い)。
-1. 本機へのイベントトリガーとして使用するRemote / Remote nano / Touch / Open Sensor / Faceの設定画面を開き、「セサミを追加…」から前記で登録した本機を追加する(Remote nano / Open Sensorは要リセット)。
-1. イベントトリガーのRemote等を操作すると本機へのコマンド送信が行なわれるのでログで確認する
-1. ログに記載されているAddressを使って`triggers`セクションを設定する
+本サーバーは正しく認証できるデバイスからの接続は許容し、デバイスから送られてきたコマンドをログ出力しています。どうしても特定のデバイスの接続が許容できない場合、
+`connect_checks`設定により特定のBLE Addressを持つデバイスのみ接続を許可したり、逆に特定のAddressを拒否する(接続後即座に切断する)ことができます。
 
+例:
+```yaml
+sesame_server:
+  connect_checks:
+    - address: "12:34:56:78:9a:bc"
+      policy: allow
+    - address: "98:76:54:32:10:00"
+      policy: allow
+    - address: any
+      policy: deny
+```
+
+上記の例では`allow`が指定された2つのデバイスからの接続のみを許容し、他のデバイスから接続があった場合は即座に切断します。
+
+`connect_check`を指定する場合は少なくとも1つの`address`と`policy`の組を指定する必要があります。最後に指定する`address`は必ず`any`とする必要があります(リストに記載されていないアドレスに対する処理を明示する)。
+
+### connect_checks設定変数
+* **address** (**Required**, string): 対象のBLE Addressまたは`any`を指定する
+* **policy** (**Required**, string): `allow`, `deny`のいずれかを指定する。`allow`: 接続を許可する(ただし、正しく認証できなければいずれ切断される)。`deny`: 即座に切断する。
+
+# オートメーション
 ## イベントハンドラで利用可能な情報
 ```mermaid
 graph LR
@@ -281,10 +316,12 @@ sesame_server:
   uuid: !secret sesame_server_my_uuid
   triggers:
   - name: Remote 1
+    id: remote_1
     address: !secret remote_address
     on_event:
       then:
         - lambda: |-
+            ESP_LOGD("Test", "event %s received from %s", event_type.c_str(), id(remote_1).get_history_tag().c_str());
             if (event_type == "lock") {
               id(led_1).turn_on();
             } else {
@@ -299,7 +336,7 @@ output:
 ```
 上記コードはGPIO21番ピンにLEDが接続されていることを想定しています(Seeed XIAO ESP32S3)。
 
-### ロック状態の通知 (SESAME Faceの節電)
+## ロック状態の通知 (SESAME Faceの節電)
 
 通常、Remote / Touchは相手の状態とは無関係に施錠/開錠コマンドを送ってきますが、Faceは少し特殊で相手が開錠状態であれば顔認証が起動されません(指紋やICカードを使うことは可能で開錠コマンドが発行されます)。
 
@@ -324,7 +361,7 @@ time:
 
 ```
 
-### Open Sensor 2スイッチ状態
+## Open Sensor 2スイッチ状態
 
 Open Sensor 2 (Open Sensorも)はコマンド送信時にバッテリー電圧に加えて(仕様書にない)以下の値を送ってくるようです。
 この値を利用して Open Sensor 2 のスイッチ位置を用いたオートメーションを作ることが可能です。
@@ -333,11 +370,11 @@ Open Sensor 2 (Open Sensorも)はコマンド送信時にバッテリー電圧�
 
 | Index | Content                                                                                                      |
 |-------|--------------------------------------------------------------------------------------------------------------|
-| 0     | Command (`5a`: Open, `5b`: Close)                                                                        |
-| 1     | Device/State Identifier:<br>`ff`: Open Sensor<br>`00`: Switch Off (Open Sensor 2)<br>`01`: Switch On (Open Sensor 2) |
+| 0     | Command (`0x5a`: Open, `0x5b`: Close)                                                                        |
+| 1     | Device/State Identifier:<br>`0xff`: Open Sensor<br>`0x00`: Switch Off (Open Sensor 2)<br>`0x01`: Switch On (Open Sensor 2) |
 
 
-### Home Assistantとの連携
+## Home Assistantとの連携
 
 ```mermaid
 graph LR
@@ -367,8 +404,7 @@ Home Assistantではボタンが押されたことはエンティティの状態
 <img src="select-entity.png" width="70%">
 <img src="entity-all.png" width="70%">
 
-
-## デュアルロール利用
+# デュアルロール利用
 
 本コンポーネントと[esphome-sesame3](https://github.com/homy-newfs8/esphome-sesame3)を使うと、一台のESP32でSESAMEへ命令を発行するクライアント機能と、Remote等のイベントをトリガーとして受信するサーバー機能の両方を共存させることが可能です。
 
@@ -393,14 +429,14 @@ client --> bike[SESAME bike]
 
 Touchに特定の名前を付けたカードがかざされた時に別のセンサーのデータを確認してからSESAMEを開錠する、といったことが1台のESP32で(クラウドに頼らずに)実現可能になります。[dual-role.yaml](../dual-role.yaml)を参照してください。
 
-### デュアルロール時の注意点
+## デュアルロール時の注意点
 
 デュアルロール構成にすると、SESAME Touchからのトリガーを待ち受けつつ、そのSESAME Touchのバッテリー残量を監視するといったことも可能になります。ただし、SESAME Touchが(トリガー通知のために)本機(ESP32)に接続してきている状態においては、バッテリー残量を問合わせるために本機からそのSESAME Touchへ接続することができません。そこで、バッテリー残量を取得する際にはサーバー側の接続を一旦切断してから問合せを実行します。問合わせ実行中(数秒程度)はサーバーのアドバタイジングも停止するためSESAME Touchからのトリガーを受けることができません。問合わせが完了すればトリガーの受付けが可能になります。
 
 そのようにクライアント側接続は一時的なものとする必要があるため、`always_connect`属性は`False`に設定する必要があります。バッテリー監視を低頻度にするため`update_interval`を長期間に設定することをお薦めします。また、SESAME TOuch等の使用がない時間に問合わせたいならば、`update_interval`を`never`に設定し、`time`コンポーネントの`on_time`イベントでバッテリー残量の問合わせを実行するのも良いでしょう。[dual-role.yaml](../dual-role.yaml)に例があります。
 
 
-## 未登録状態へのリセット
+# 未登録状態へのリセット
 `sesame_server.reset()`を呼び出すことで未登録状態にすることが可能です。[example.yaml](../example.yaml)にHome Assistant上に表示され、クリックすると初期化する疑似ボタンコンポーネントの定義をしてあります。参考にしてください。
 
 ```yaml
