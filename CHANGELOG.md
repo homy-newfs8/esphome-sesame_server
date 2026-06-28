@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.13.0] 2026-06-28
+- Add `connect_checks` to `sesame_server`.
+
 ## [v0.12.0] 2026-05-31
 - Add `scaled_voltate2`, `battery_pct2` sensors and `extra` text_sensor.
 
