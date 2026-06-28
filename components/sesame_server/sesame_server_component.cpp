@@ -142,10 +142,9 @@ SesameServerComponent::connect_check(const NimBLEAddress& addr) {
 		ESP_LOGW(TAG, "%s: Connection denied: not in connect_check", addr.toString().c_str());
 		return false;
 	}
-	ESP_LOGD(TAG, "connect_check matched %s, %u", it->address.toString().c_str(), static_cast<uint8_t>(it->policy));
 	auto rc = it->policy == connect_check_policy_t::allow;
 	if (!rc) {
-		ESP_LOGI(TAG, "%s: Connection denied by connect_check", it->address.toString().c_str());
+		ESP_LOGI(TAG, "%s: Connection denied by connect_check", addr.toString().c_str());
 	}
 	return rc;
 }
