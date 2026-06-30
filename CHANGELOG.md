@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.13.1] 2026-06-30
+- Bump libsesame3bt version
+
 ## [v0.13.0] 2026-06-28
 - Add `connect_checks` to `sesame_server`.
 
