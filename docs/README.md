@@ -13,6 +13,14 @@ t[SESAME Touch/PRO<br/>SESAME Face/PRO] -->|lock/unlock| server
 o[Open Sensor/2] -->|open/close| server
 r[CANDY HOUSE Remote/nano] -->|lock/unlock| server
 ```
+>[!NOTE]
+> このコンポーネントをESPHome 2026.7.0以降で使用するには、`esp32:`設定に`toolchain: platformio`を以下のように指定してください。
+> ```yaml
+> esp32:
+>   ⋮
+>   toolchain: platformio
+>   ⋮
+> ```
 
 > [!NOTE]
 > このコンポーネントはESPHomeに組込みのBluetooth機能をつかっていません。
