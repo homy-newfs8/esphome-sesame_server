@@ -14,7 +14,8 @@ o[Open Sensor/2] -->|open/close| server
 r[CANDY HOUSE Remote/nano] -->|lock/unlock| server
 ```
 >[!NOTE]
-> このコンポーネントをESPHome 2026.7.0以降で使用するには、`esp32:`設定に`toolchain: platformio`を以下のように指定してください。
+> このコンポーネントをESPHome 2026.7.0～2026.7.2で使用するには、`esp32:`設定に`toolchain: platformio`を以下のように指定してください。
+> (ESPHome 2026.7.3でこの制約は修正されました)
 > ```yaml
 > esp32:
 >   ⋮
@@ -85,7 +86,8 @@ esphome:
   friendly_name: SesameServer1
   platformio_options:
     build_flags:
-      - -Wall -Wextra
+      - -Wall
+      - -Wextra
       - -DUSE_FRAMEWORK_MBEDTLS_CMAC
 
 esp32:
