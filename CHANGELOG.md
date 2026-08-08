@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.13.3] 2026-08-08
+- Bump libsesame3bt version
+
 ## [v0.13.2] 2026-07-23
 - Bump libsesame3bt version
 

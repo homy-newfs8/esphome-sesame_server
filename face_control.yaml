@@ -3,19 +3,20 @@ esphome:
   friendly_name: SesameServer2
   platformio_options:
     build_flags:
-      - -Wall -Wextra
+      - -Wall
+      - -Wextra
       - -DUSE_FRAMEWORK_MBEDTLS_CMAC
 
 external_components:
   - source:
       type: git
       url: https://github.com/homy-newfs8/esphome-sesame_server
-      ref: v0.11.0
+      ref: v0.13.3
     components: [sesame_server]
   - source:
       type: git
       url: https://github.com/homy-newfs8/esphome-sesame3
-      ref: v0.27.0
+      ref: v0.28.3
     components: [sesame, sesame_ble]
   # - source: "../esphome/esphome/components2"
   #   components: [sesame_server, sesame, sesame_ble]
