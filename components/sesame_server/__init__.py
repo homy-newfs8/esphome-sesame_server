@@ -56,6 +56,7 @@ CONF_BATTERY_PCT = "battery_pct"
 CONF_SCALED_VOLTAGE2 = "scaled_voltage2"
 CONF_BATTERY_PCT2 = "battery_pct2"
 CONF_EXTRA = "extra"
+CONF_VERSION_TAG = "version_tag"
 
 
 def is_hex_string(str, valid_len):
@@ -168,6 +169,7 @@ CONFIG_SCHEMA = cv.All(
                 cv.Length(min=1),
                 validate_connect_checks,
             ),
+            cv.Optional(CONF_VERSION_TAG): cv.string,
         }
     ).extend(cv.COMPONENT_SCHEMA),
     warn_address_deprecated,
@@ -245,6 +247,8 @@ async def to_code(config):
                 bconf = tconf[CONF_CONNECTION_SENSOR]
                 bs = await binary_sensor.new_binary_sensor(bconf)
                 cg.add(trig.set_connection_sensor(bs))
+            if CONF_VERSION_TAG in config:
+                cg.add(var.set_version_tag(config[CONF_VERSION_TAG]))
             cg.add(var.add_trigger(trig))
         for trig, tconf in triggers:
             await event.register_event(trig, tconf, event_types=EVENT_TYPES)

@@ -129,6 +129,7 @@ class SesameServerComponent : public Component {
 	bool send_current_lock_state(const NimBLEAddress& address);
 	void notify_lock_state();
 	void set_connect_checks(const std::span<const SesameServerConnectCheckEntry> entries) { connect_checks = entries; }
+	void set_version_tag(std::string_view tag) { sesame_server.set_version_tag(tag); }
 
  private:
 	libsesame3bt::SesameServer sesame_server;
