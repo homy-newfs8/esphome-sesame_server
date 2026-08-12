@@ -54,10 +54,7 @@ SesameServerComponent::prepare_secret() {
 	std::array<std::byte, Sesame::SECRET_SIZE> secret;
 	if (prefs_secret.load(&secret)) {
 		if (std::any_of(std::cbegin(secret), std::cend(secret), [](auto x) { return x != std::byte{0}; })) {
-			if (!sesame_server.set_registered(secret)) {
-				ESP_LOGE(TAG, "Failed to restore secret");
-				return false;
-			}
+			sesame_server.set_registered(secret);
 		}
 	}
 	return true;
