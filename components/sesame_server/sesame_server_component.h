@@ -135,6 +135,9 @@ class SesameServerComponent : public Component {
 	libsesame3bt::SesameServer sesame_server;
 	const NimBLEUUID uuid;
 	std::vector<std::unique_ptr<SesameTrigger>> triggers;
+	// Authenticated sessions that are not explicitly configured as triggers.
+	// These include, for example, the official SESAME app whose BLE address may change.
+	std::vector<NimBLEAddress> unlisted_sessions;
 	ESPPreferenceObject prefs_secret;
 	std::unique_ptr<StatusLockWrapper> lock_entity;
 	bool server_started = false;

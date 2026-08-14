@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <cmath>
 #include <optional>
-#include <vector>
 
 #ifndef LOG_REGISTER_SECRET
 #define LOG_REGISTER_SECRET 0
@@ -23,10 +22,6 @@ constexpr const uint32_t SESAMESERVER_RANDOM = 0x76d18970;
 
 constexpr int16_t LOCK_POSITION = 0;
 constexpr int16_t UNLOCK_POSITION = 90;
-
-// Authenticated sessions that are not explicitly configured as triggers.
-// These include, for example, the official SESAME app whose BLE address may change.
-std::vector<NimBLEAddress> unlisted_sessions;
 
 }  // namespace
 
@@ -437,9 +432,8 @@ SesameServerComponent::send_lock_state(const NimBLEAddress* address, lock::LockS
 			ESP_LOGD(TAG, "Sending lock state %s to %s", LOG_STR_ARG(lock::lock_state_to_string(state)), address->toString().c_str());
 			return sesame_server.send_mecha_status(address, sst);
 		} else {
-		    ESP_LOGD(TAG, "Broadcasting lock state %s to all connected devices",
-		             LOG_STR_ARG(lock::lock_state_to_string(state)));
-		    return sesame_server.send_mecha_status(nullptr, sst);
+			ESP_LOGW(TAG, "No session for address %s, cannot send lock status", address->toString().c_str());
+			return false;
 		}
 	} else {
 		bool rc = true;

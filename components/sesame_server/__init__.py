@@ -84,6 +84,20 @@ def validate_address(config: ConfigType) -> ConfigType:
     return config
 
 
+def validate_version_tag(value):
+    value = cv.string(value)
+
+    try:
+        encoded = value.encode("ascii")
+    except UnicodeEncodeError as err:
+        raise cv.Invalid("version_tag must contain ASCII characters only") from err
+
+    if len(encoded) != 12:
+        raise cv.Invalid("version_tag must be exactly 12 bytes")
+
+    return value
+
+
 def warn_trigger_type_deprecated(config: ConfigType) -> ConfigType:
     if CONF_TRIGGER_TYPE in config:
         if CONF_HISTORY_TAG_TYPE in config:
@@ -169,7 +183,7 @@ CONFIG_SCHEMA = cv.All(
                 cv.Length(min=1),
                 validate_connect_checks,
             ),
-            cv.Optional(CONF_VERSION_TAG): cv.string,
+            cv.Optional(CONF_VERSION_TAG): validate_version_tag,
         }
     ).extend(cv.COMPONENT_SCHEMA),
     warn_address_deprecated,
