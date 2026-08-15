@@ -225,6 +225,8 @@ async def to_code(config):
     if CONF_LOCK in config:
         lock = await cg.get_variable(config[CONF_LOCK])
         cg.add(var.set_lock_entity(lock))
+    if CONF_VERSION_TAG in config:
+        cg.add(var.set_version_tag(config[CONF_VERSION_TAG]))
     await cg.register_component(var, config)
     if CONF_TRIGGERS in config:
         triggers = []
@@ -261,8 +263,6 @@ async def to_code(config):
                 bconf = tconf[CONF_CONNECTION_SENSOR]
                 bs = await binary_sensor.new_binary_sensor(bconf)
                 cg.add(trig.set_connection_sensor(bs))
-            if CONF_VERSION_TAG in config:
-                cg.add(var.set_version_tag(config[CONF_VERSION_TAG]))
             cg.add(var.add_trigger(trig))
         for trig, tconf in triggers:
             await event.register_event(trig, tconf, event_types=EVENT_TYPES)
