@@ -473,6 +473,9 @@ SesameServerComponent::send_lock_state(const NimBLEAddress* address, lock::LockS
 
 void
 SesameServerComponent::on_connected(const NimBLEAddress& addr) {
+	if (!sesame_server.is_registered()) {
+		return;
+	}
 	if (auto trig = std::find_if(std::cbegin(triggers), std::cend(triggers),
 	                             [&addr](const auto& trigger) { return trigger->get_address() == addr; });
 	    trig != std::cend(triggers)) {
