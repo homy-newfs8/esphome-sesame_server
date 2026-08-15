@@ -126,18 +126,15 @@ SesameServerComponent::setup() {
 		sesame_server.set_connect_check_callback([this](const auto& addr) { return connect_check(addr); });
 	}
 
-    Sesame::mecha_setting_5_t setting{};
-    setting.lock_position = LOCK_POSITION;
-    setting.unlock_position = UNLOCK_POSITION;
-    setting.auto_lock_sec = 0;
+	Sesame::mecha_setting_5_t setting{};
+	setting.lock_position = LOCK_POSITION;
+	setting.unlock_position = UNLOCK_POSITION;
+	setting.auto_lock_sec = 0;
 
-    sesame_server.set_mecha_setting(setting);
+	sesame_server.set_mecha_setting(setting);
 
-    ESP_LOGD(TAG,
-             "mechaSetting: lock=%d unlock=%d auto_lock=%d",
-             setting.lock_position,
-             setting.unlock_position,
-             setting.auto_lock_sec);
+	ESP_LOGD(TAG, "mechaSetting: lock=%d unlock=%d auto_lock=%d", setting.lock_position, setting.unlock_position,
+	         setting.auto_lock_sec);
 
 	if (!sesame_server.begin(Sesame::model_t::sesame_5, uuid) || !sesame_server.start_advertising()) {
 		ESP_LOGE(TAG, "Failed to start SESAME server");
@@ -365,65 +362,64 @@ SesameServerComponent::send_current_lock_state(const NimBLEAddress& address) {
 
 bool
 SesameServerComponent::send_lock_state(const NimBLEAddress* address, lock::LockState state) {
-    Sesame::mecha_status_5_t sst{};
+	Sesame::mecha_status_5_t sst{};
 
-    sst.battery = 3 * 1000; // dummy voltage
-    sst.is_critical = false;
+	sst.battery = 3 * 1000;  // dummy voltage
+	sst.is_critical = false;
 
 	switch (state) {
-	    case lock::LOCK_STATE_LOCKED:
-	        sst.position = LOCK_POSITION;       // 0
-	        sst.target = LOCK_POSITION;         // 0
-	        sst.in_lock = true;
-	        sst.in_unlock = false;
-	        sst.is_stop = true;
-	        break;
+		case lock::LOCK_STATE_LOCKED:
+			sst.position = LOCK_POSITION;  // 0
+			sst.target = LOCK_POSITION;    // 0
+			sst.in_lock = true;
+			sst.in_unlock = false;
+			sst.is_stop = true;
+			break;
 
-	    case lock::LOCK_STATE_UNLOCKED:
-	        sst.position = UNLOCK_POSITION;     // 90
-	        sst.target = UNLOCK_POSITION;       // 90
-	        sst.in_lock = false;
-	        sst.in_unlock = true;
-	        sst.is_stop = true;
-	        break;
+		case lock::LOCK_STATE_UNLOCKED:
+			sst.position = UNLOCK_POSITION;  // 90
+			sst.target = UNLOCK_POSITION;    // 90
+			sst.in_lock = false;
+			sst.in_unlock = true;
+			sst.is_stop = true;
+			break;
 
-	    case lock::LOCK_STATE_LOCKING:
-	        // 90° → 0° へ移動中
-	        sst.position = UNLOCK_POSITION;
-	        sst.target = LOCK_POSITION;
-	        sst.in_lock = false;
-	        sst.in_unlock = false;
-	        sst.is_stop = false;
-	        break;
+		case lock::LOCK_STATE_LOCKING:
+			// 90° → 0° へ移動中
+			sst.position = UNLOCK_POSITION;
+			sst.target = LOCK_POSITION;
+			sst.in_lock = false;
+			sst.in_unlock = false;
+			sst.is_stop = false;
+			break;
 
-	    case lock::LOCK_STATE_UNLOCKING:
-	        // 0° → 90° へ移動中
-	        sst.position = LOCK_POSITION;
-	        sst.target = UNLOCK_POSITION;
-	        sst.in_lock = false;
-	        sst.in_unlock = false;
-	        sst.is_stop = false;
-	        break;
+		case lock::LOCK_STATE_UNLOCKING:
+			// 0° → 90° へ移動中
+			sst.position = LOCK_POSITION;
+			sst.target = UNLOCK_POSITION;
+			sst.in_lock = false;
+			sst.in_unlock = false;
+			sst.is_stop = false;
+			break;
 
-	    case lock::LOCK_STATE_JAMMED:
-	        // 仮実装
-	        sst.position = (LOCK_POSITION + UNLOCK_POSITION) / 2;
-	        sst.target = -32768;
-	        sst.in_lock = false;
-	        sst.in_unlock = false;
-	        sst.is_stop = true;
-	        sst.is_critical = true;
-	        break;
+		case lock::LOCK_STATE_JAMMED:
+			// 仮実装
+			sst.position = (LOCK_POSITION + UNLOCK_POSITION) / 2;
+			sst.target = -32768;
+			sst.in_lock = false;
+			sst.in_unlock = false;
+			sst.is_stop = true;
+			sst.is_critical = true;
+			break;
 
-	    default:
-	        sst.position = UNLOCK_POSITION;
-	        sst.target = -32768;
-	        sst.in_lock = false;
-	        sst.in_unlock = false;
-	        sst.is_stop = true;
-	        break;
+		default:
+			sst.position = UNLOCK_POSITION;
+			sst.target = -32768;
+			sst.in_lock = false;
+			sst.in_unlock = false;
+			sst.is_stop = true;
+			break;
 	}
-
 
 	sesame_server.set_mecha_status(sst);
 
@@ -463,8 +459,8 @@ SesameServerComponent::send_lock_state(const NimBLEAddress* address, lock::LockS
 			if (!has_session(addr)) {
 				continue;
 			}
-			ESP_LOGD(TAG, "Sending lock state %s to unlisted session %s",
-			         LOG_STR_ARG(lock::lock_state_to_string(state)), addr.toString().c_str());
+			ESP_LOGD(TAG, "Sending lock state %s to unlisted session %s", LOG_STR_ARG(lock::lock_state_to_string(state)),
+			         addr.toString().c_str());
 			if (!sesame_server.send_mecha_status(&addr, sst)) {
 				ESP_LOGW(TAG, "Failed to send lock status to unlisted session %s", addr.toString().c_str());
 				rc = false;
@@ -477,25 +473,24 @@ SesameServerComponent::send_lock_state(const NimBLEAddress* address, lock::LockS
 
 void
 SesameServerComponent::on_connected(const NimBLEAddress& addr) {
-    if (auto trig = std::find_if(std::cbegin(triggers), std::cend(triggers),
-                                 [&addr](const auto& trigger) { return trigger->get_address() == addr; });
-        trig != std::cend(triggers)) {
-        (*trig)->update_connected(true);
-        ESP_LOGI(TAG, "%s (%s) connected", addr.toString().c_str(), (*trig)->get_name().c_str());
-    } else {
-        ESP_LOGI(TAG, "%s (unlisted) connected, send current lock state", addr.toString().c_str());
+	if (auto trig = std::find_if(std::cbegin(triggers), std::cend(triggers),
+	                             [&addr](const auto& trigger) { return trigger->get_address() == addr; });
+	    trig != std::cend(triggers)) {
+		(*trig)->update_connected(true);
+		ESP_LOGI(TAG, "%s (%s) connected", addr.toString().c_str(), (*trig)->get_name().c_str());
+	} else {
+		ESP_LOGI(TAG, "%s (unlisted) connected, send current lock state", addr.toString().c_str());
 
-        if (std::find(unlisted_sessions.begin(), unlisted_sessions.end(), addr) == unlisted_sessions.end()) {
-            unlisted_sessions.push_back(addr);
-            ESP_LOGD(TAG, "Added unlisted session %s", addr.toString().c_str());
-        }
+		if (std::find(unlisted_sessions.begin(), unlisted_sessions.end(), addr) == unlisted_sessions.end()) {
+			unlisted_sessions.push_back(addr);
+			ESP_LOGD(TAG, "Added unlisted session %s", addr.toString().c_str());
+		}
 
-        // Send the current mecha status immediately after authentication/login.
-        if (!send_current_lock_state(addr)) {
-            ESP_LOGW(TAG, "Failed to send lock state to unlisted device %s",
-                     addr.toString().c_str());
-        }
-    }
+		// Send the current mecha status immediately after authentication/login.
+		if (!send_current_lock_state(addr)) {
+			ESP_LOGW(TAG, "Failed to send lock state to unlisted device %s", addr.toString().c_str());
+		}
+	}
 }
 
 void
@@ -507,8 +502,7 @@ SesameServerComponent::on_disconnect(const NimBLEAddress& addr, int reason) {
 		ESP_LOGI(TAG, "%s (%s) disconnected, reason=%d", addr.toString().c_str(), (*trig)->get_name().c_str(), reason);
 	} else {
 		ESP_LOGI(TAG, "%s (unlisted) disconnected, reason=%d", addr.toString().c_str(), reason);
-		unlisted_sessions.erase(std::remove(unlisted_sessions.begin(), unlisted_sessions.end(), addr),
-		                        unlisted_sessions.end());
+		unlisted_sessions.erase(std::remove(unlisted_sessions.begin(), unlisted_sessions.end(), addr), unlisted_sessions.end());
 		ESP_LOGD(TAG, "Removed unlisted session %s", addr.toString().c_str());
 	}
 }
