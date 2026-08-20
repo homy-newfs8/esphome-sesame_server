@@ -65,7 +65,7 @@ external_components:
   - source:
       type: git
       url: https://github.com/homy-newfs8/esphome-sesame_server
-      ref: v0.13.3
+      ref: v0.14.0
     components: [sesame_server]
 ```
 
@@ -172,6 +172,7 @@ python -c "import uuid; print(uuid.uuid4())"
 * **uuid** (**Required**, string): 本デバイス用UUID
 * **max_sessions** (*Optional*, int): 最大同時セッション数。無指定の場合は3。変更する場合は`platformio_options`セクションの`CONFIG_BT_NIMBLE_MAX_CONNECTIONS`設定も見直したほうが良い。
 * **lock** (*Optional*, [ID](https://esphome.io/guides/configuration-types/#config-id)): 連動させるロックコンポーネント。
+* **version_tag** (*Optional*, string): スマホアプリ等に通知するバージョン番号文字列。12バイトで設定します(2026/8/15現在のSESAME 5のバージョンは"3.0-5-09ca44")。
 * **triggers** (*Optional*): イベント処理対象のデバイスのリスト(次節)。
 * **connect_checks** (*Optional*): 接続時検査リスト([後述](#接続時検査))。
 

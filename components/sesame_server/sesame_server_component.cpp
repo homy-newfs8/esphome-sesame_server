@@ -4,6 +4,7 @@
 #include <esphome/core/version.h>
 #include <libsesame3bt/ClientCore.h>
 #include <libsesame3bt/util.h>
+#include <algorithm>
 #include <cmath>
 #include <optional>
 
@@ -18,6 +19,9 @@ namespace {
 constexpr const char TAG[] = "sesame_server";
 
 constexpr const uint32_t SESAMESERVER_RANDOM = 0x76d18970;
+
+constexpr int16_t LOCK_POSITION = 0;
+constexpr int16_t UNLOCK_POSITION = 90;
 
 }  // namespace
 
@@ -118,6 +122,17 @@ SesameServerComponent::setup() {
 	if (!connect_checks.empty()) {
 		sesame_server.set_connect_check_callback([this](const auto& addr) { return connect_check(addr); });
 	}
+
+	Sesame::mecha_setting_5_t setting{};
+	setting.lock_position = LOCK_POSITION;
+	setting.unlock_position = UNLOCK_POSITION;
+	setting.auto_lock_sec = 0;
+
+	sesame_server.set_mecha_setting(setting);
+
+	ESP_LOGD(TAG, "mechaSetting: lock=%d unlock=%d auto_lock=%d", setting.lock_position, setting.unlock_position,
+	         setting.auto_lock_sec);
+
 	if (!sesame_server.begin(Sesame::model_t::sesame_5, uuid) || !sesame_server.start_advertising()) {
 		ESP_LOGE(TAG, "Failed to start SESAME server");
 		mark_failed();
@@ -345,24 +360,80 @@ SesameServerComponent::send_current_lock_state(const NimBLEAddress& address) {
 bool
 SesameServerComponent::send_lock_state(const NimBLEAddress* address, lock::LockState state) {
 	Sesame::mecha_status_5_t sst{};
-	sst.is_stop = true;
+
 	sst.battery = 3 * 1000;  // dummy voltage
-	sst.position = 100;
-	sst.target = -32768;
-	sst.is_stop = true;
-	sst.is_critical = state == lock::LOCK_STATE_JAMMED;
-	sst.in_lock = state == lock::LOCK_STATE_LOCKED;
-	sst.in_unlock = !sst.in_lock;
+	sst.is_critical = false;
+
+	switch (state) {
+		case lock::LOCK_STATE_LOCKED:
+			sst.position = LOCK_POSITION;  // 0
+			sst.target = LOCK_POSITION;    // 0
+			sst.in_lock = true;
+			sst.in_unlock = false;
+			sst.is_stop = true;
+			break;
+
+		case lock::LOCK_STATE_UNLOCKED:
+			sst.position = UNLOCK_POSITION;  // 90
+			sst.target = UNLOCK_POSITION;    // 90
+			sst.in_lock = false;
+			sst.in_unlock = true;
+			sst.is_stop = true;
+			break;
+
+		case lock::LOCK_STATE_LOCKING:
+			// 90° → 0° へ移動中
+			sst.position = UNLOCK_POSITION;
+			sst.target = LOCK_POSITION;
+			sst.in_lock = false;
+			sst.in_unlock = false;
+			sst.is_stop = false;
+			break;
+
+		case lock::LOCK_STATE_UNLOCKING:
+			// 0° → 90° へ移動中
+			sst.position = LOCK_POSITION;
+			sst.target = UNLOCK_POSITION;
+			sst.in_lock = false;
+			sst.in_unlock = false;
+			sst.is_stop = false;
+			break;
+
+		case lock::LOCK_STATE_JAMMED:
+			// 仮実装
+			sst.position = (LOCK_POSITION + UNLOCK_POSITION) / 2;
+			sst.target = -32768;
+			sst.in_lock = false;
+			sst.in_unlock = false;
+			sst.is_stop = true;
+			sst.is_critical = true;
+			break;
+
+		default:
+			sst.position = UNLOCK_POSITION;
+			sst.target = -32768;
+			sst.in_lock = false;
+			sst.in_unlock = false;
+			sst.is_stop = true;
+			break;
+	}
+
+	sesame_server.set_mecha_status(sst);
+
 	if (address) {
 		if (has_session(*address)) {
 			ESP_LOGD(TAG, "Sending lock state %s to %s", LOG_STR_ARG(lock::lock_state_to_string(state)), address->toString().c_str());
 			return sesame_server.send_mecha_status(address, sst);
 		} else {
-			ESP_LOGW(TAG, "No session, cannot send lock status");
+			ESP_LOGW(TAG, "No session for address %s, cannot send lock status", address->toString().c_str());
 			return false;
 		}
 	} else {
 		bool rc = true;
+
+		// Preserve the existing trigger routing: triggers with their own lock entity
+		// receive state updates from that lock, while triggers without one follow
+		// the server-level lock entity.
 		for (auto& trig : triggers) {
 			ESP_LOGV(TAG, "Checking trigger %s", trig->get_address().toString().c_str());
 			if (!trig->has_lock_entity() && has_session(trig->get_address())) {
@@ -377,19 +448,48 @@ SesameServerComponent::send_lock_state(const NimBLEAddress* address, lock::LockS
 				         trig->has_lock_entity(), has_session(trig->get_address()));
 			}
 		}
+
+		// Also notify authenticated sessions that are not configured as triggers.
+		// This lets clients such as the official app receive live state updates
+		// without changing the existing trigger-specific routing semantics.
+		for (const auto& addr : unlisted_sessions) {
+			if (!has_session(addr)) {
+				continue;
+			}
+			ESP_LOGD(TAG, "Sending lock state %s to unlisted session %s", LOG_STR_ARG(lock::lock_state_to_string(state)),
+			         addr.toString().c_str());
+			if (!sesame_server.send_mecha_status(&addr, sst)) {
+				ESP_LOGW(TAG, "Failed to send lock status to unlisted session %s", addr.toString().c_str());
+				rc = false;
+			}
+		}
+
 		return rc;
 	}
 }
 
 void
 SesameServerComponent::on_connected(const NimBLEAddress& addr) {
+	if (!sesame_server.is_registered()) {
+		return;
+	}
 	if (auto trig = std::find_if(std::cbegin(triggers), std::cend(triggers),
 	                             [&addr](const auto& trigger) { return trigger->get_address() == addr; });
 	    trig != std::cend(triggers)) {
 		(*trig)->update_connected(true);
 		ESP_LOGI(TAG, "%s (%s) connected", addr.toString().c_str(), (*trig)->get_name().c_str());
 	} else {
-		ESP_LOGI(TAG, "%s (unlisted) connected", addr.toString().c_str());
+		ESP_LOGI(TAG, "%s (unlisted) connected, send current lock state", addr.toString().c_str());
+
+		if (std::find(unlisted_sessions.begin(), unlisted_sessions.end(), addr) == unlisted_sessions.end()) {
+			unlisted_sessions.push_back(addr);
+			ESP_LOGD(TAG, "Added unlisted session %s", addr.toString().c_str());
+		}
+
+		// Send the current mecha status immediately after authentication/login.
+		if (!send_current_lock_state(addr)) {
+			ESP_LOGW(TAG, "Failed to send lock state to unlisted device %s", addr.toString().c_str());
+		}
 	}
 }
 
@@ -402,6 +502,8 @@ SesameServerComponent::on_disconnect(const NimBLEAddress& addr, int reason) {
 		ESP_LOGI(TAG, "%s (%s) disconnected, reason=%d", addr.toString().c_str(), (*trig)->get_name().c_str(), reason);
 	} else {
 		ESP_LOGI(TAG, "%s (unlisted) disconnected, reason=%d", addr.toString().c_str(), reason);
+		unlisted_sessions.erase(std::remove(unlisted_sessions.begin(), unlisted_sessions.end(), addr), unlisted_sessions.end());
+		ESP_LOGD(TAG, "Removed unlisted session %s", addr.toString().c_str());
 	}
 }
 

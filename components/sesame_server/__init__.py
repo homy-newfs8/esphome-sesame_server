@@ -56,6 +56,7 @@ CONF_BATTERY_PCT = "battery_pct"
 CONF_SCALED_VOLTAGE2 = "scaled_voltage2"
 CONF_BATTERY_PCT2 = "battery_pct2"
 CONF_EXTRA = "extra"
+CONF_VERSION_TAG = "version_tag"
 
 
 def is_hex_string(str, valid_len):
@@ -81,6 +82,20 @@ def validate_address(config: ConfigType) -> ConfigType:
     if CONF_UUID not in config and CONF_ADDRESS not in config:
         raise cv.RequiredFieldInvalid("Either 'uuid' or 'address' is required")
     return config
+
+
+def validate_version_tag(value):
+    value = cv.string(value)
+
+    try:
+        encoded = value.encode("ascii")
+    except UnicodeEncodeError as err:
+        raise cv.Invalid("version_tag must contain ASCII characters only") from err
+
+    if len(encoded) != 12:
+        raise cv.Invalid("version_tag must be exactly 12 bytes")
+
+    return value
 
 
 def warn_trigger_type_deprecated(config: ConfigType) -> ConfigType:
@@ -168,6 +183,7 @@ CONFIG_SCHEMA = cv.All(
                 cv.Length(min=1),
                 validate_connect_checks,
             ),
+            cv.Optional(CONF_VERSION_TAG): validate_version_tag,
         }
     ).extend(cv.COMPONENT_SCHEMA),
     warn_address_deprecated,
@@ -209,6 +225,8 @@ async def to_code(config):
     if CONF_LOCK in config:
         lock = await cg.get_variable(config[CONF_LOCK])
         cg.add(var.set_lock_entity(lock))
+    if CONF_VERSION_TAG in config:
+        cg.add(var.set_version_tag(config[CONF_VERSION_TAG]))
     await cg.register_component(var, config)
     if CONF_TRIGGERS in config:
         triggers = []
@@ -249,7 +267,7 @@ async def to_code(config):
         for trig, tconf in triggers:
             await event.register_event(trig, tconf, event_types=EVENT_TYPES)
 
-    # cg.add_library("libsesame3bt-server", None, "https://github.com/homy-newfs8/libsesame3bt-server#v0.13.3")
+    # cg.add_library("libsesame3bt-server", None, "https://github.com/homy-newfs8/libsesame3bt-server#v0.14.0")
     cg.add_library("libsesame3bt-server", None, "symlink://../../../../libsesame3bt-server")
     cg.add_library("libsesame3bt-core", None, "symlink://../../../../libsesame3bt-core")
     cg.add_platformio_option("lib_ldf_mode", "deep")
