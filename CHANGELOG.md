@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.15.0] 2026-08-23
+- Bump libsesame3bt-server to 0.50.0
+
 ## [v0.14.0] 2026-08-15
 - Improve lock stateus sending more like SESAME lock devices
 - Add `version_tag` support
