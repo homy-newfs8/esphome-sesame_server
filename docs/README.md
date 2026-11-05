@@ -75,7 +75,7 @@ external_components:
 
 同時に多数のSESAME TouchやRemoteと接続する場合には、`CONFIG_BT_NIMBLE_MAX_CONNECTIONS`の値を調整してください(最大9: 増やすほどメモリ使用量が増加します)。Open sensorやRemote nanoは操作した時にしか接続してこないので、同時接続数はある程度小さくても問題ないかもしれません。
 
-`esp32`セクションはインストール先のESP32モジュールに応じて指定します。本コンポーネントでは`framework`として`arduino`を指定する必要があります。`board`は搭載する機器に合わせてください。
+`esp32`セクションはインストール先のESP32モジュールに応じて指定します。`board`は搭載する機器に合わせてください。
 
 `esp32.framework.type`は`arduino`も`esp-idf`も選択可能です。他にインストールしたいコンポーネントに合わせて選択してください(ESPHome的には`esp-idf`がメインストリームなようですが)。
 
@@ -92,15 +92,34 @@ esphome:
 
 esp32:
   board: esp32-s3-devkitc-1
+  toolchain: esp-idf
   framework:
-    type: arduino
+    type: esp-idf
     sdkconfig_options:
       CONFIG_BT_ENABLED: y
       CONFIG_BT_NIMBLE_ENABLED: y
       # Configure the maximum number of connections as required (maximum: 9)
       CONFIG_BT_NIMBLE_MAX_CONNECTIONS: "6"
       CONFIG_BT_NIMBLE_CRYPTO_STACK_MBEDTLS: y
+      CONFIG_MBEDTLS_CCM_C: y
 ```
+> [!NOTE]
+> ESPHome 2026.10.xでは`CONFIG_MBEDTLS_CCM_C: y`が必要です。以前のバージョンでも指定しておいて問題はないようです。
+
+### ESPHomeバージョンによるToolchainとFrameworkの互換性
+
+ESPHomeのバージョンによって、ToolchainとFrameworkの指定可能な組み合わせが異なります。
+うまくコンパイルできない場合は、esp32.toolchainの値を変更してみてください。
+
+| ESPHome version | Framework type | Toolchain                 |
+| --------------- | -------------- | ------------------------- |
+| 2026.8.x        | `esp-idf`      | `esp-idf` or `platformio` |
+|                 | `platformio`   | `esp-idf` or `platformio` |
+| 2026.9.x / 10.x | `esp-idf`      | `esp-idf` or `platformio` |
+|                 | `platformio`   | `platformio`              |
+
+
+## 以前のESPHome用設定(サンプル)
 
 古いESPHomeを使いたい場合のサンプルです。最近は確認していないのでビルドできるかは不明ですが参考まで。
 

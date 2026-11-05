@@ -27,6 +27,7 @@ esp32:
       # Configure the maximum number of connections as required (maximum: 9)
       CONFIG_BT_NIMBLE_MAX_CONNECTIONS: "6"
       CONFIG_BT_NIMBLE_CRYPTO_STACK_MBEDTLS: y
+      CONFIG_MBEDTLS_CCM_C: y
 
 ota:
   - platform: esphome
