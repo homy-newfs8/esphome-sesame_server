@@ -285,7 +285,11 @@ SesameTrigger::invoke(Sesame::item_code_t cmd,
 	if (extra_sensor) {
 		extra_sensor->publish_state(extra_sensor->state);
 	}
+#if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 11, 0)
+	ESP_LOGD(TAG, "Triggering %s to %s", evs, LOG_STR_ARG(get_log_name()));
+#else
 	ESP_LOGD(TAG, "Triggering %s to %s", evs, get_name().c_str());
+#endif
 	trigger(evs);
 }
 
@@ -477,7 +481,11 @@ SesameServerComponent::on_connected(const NimBLEAddress& addr) {
 	                             [&addr](const auto& trigger) { return trigger->get_address() == addr; });
 	    trig != std::cend(triggers)) {
 		(*trig)->update_connected(true);
+#if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 11, 0)
+		ESP_LOGI(TAG, "%s (%s) connected", addr.toString().c_str(), LOG_STR_ARG((*trig)->get_log_name()));
+#else
 		ESP_LOGI(TAG, "%s (%s) connected", addr.toString().c_str(), (*trig)->get_name().c_str());
+#endif
 	} else {
 		ESP_LOGI(TAG, "%s (unlisted) connected, send current lock state", addr.toString().c_str());
 
