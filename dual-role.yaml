@@ -1,21 +1,17 @@
 esphome:
   name: dual-role-1
   friendly_name: SesameDualRole1
-  platformio_options:
-    build_flags:
-      - -Wall
-      - -Wextra
-      - -DUSE_FRAMEWORK_MBEDTLS_CMAC
+
 external_components:
   - source:
       type: git
       url: https://github.com/homy-newfs8/esphome-sesame_server
-      ref: v0.15.0
+      ref: v0.15.1
     components: [sesame_server]
   - source:
       type: git
       url: https://github.com/homy-newfs8/esphome-sesame3
-      ref: v0.31.0
+      ref: v0.31.1
     components: [sesame]
   # - source: "../esphome/esphome/components2"
   #   components: [sesame, sesame_server]
@@ -25,11 +21,8 @@ esp32:
   framework:
     type: arduino
     sdkconfig_options:
-      CONFIG_BT_ENABLED: y
-      CONFIG_BT_NIMBLE_ENABLED: y
       # Configure the maximum number of connections as required (maximum: 9)
       CONFIG_BT_NIMBLE_MAX_CONNECTIONS: "6"
-      CONFIG_BT_NIMBLE_CRYPTO_STACK_MBEDTLS: y
 
 ota:
   - platform: esphome

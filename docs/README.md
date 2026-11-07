@@ -65,13 +65,11 @@ external_components:
   - source:
       type: git
       url: https://github.com/homy-newfs8/esphome-sesame_server
-      ref: v0.14.0
+      ref: v0.15.1
     components: [sesame_server]
 ```
 
 ## ビルドオプションの指定
-
-使用するESPHomeのバージョンに合わせて設定してください。
 
 同時に多数のSESAME TouchやRemoteと接続する場合には、`CONFIG_BT_NIMBLE_MAX_CONNECTIONS`の値を調整してください(最大9: 増やすほどメモリ使用量が増加します)。Open sensorやRemote nanoは操作した時にしか接続してこないので、同時接続数はある程度小さくても問題ないかもしれません。
 
@@ -84,11 +82,6 @@ external_components:
 esphome:
   name: sesame-server-1
   friendly_name: SesameServer1
-  platformio_options:
-    build_flags:
-      - -Wall
-      - -Wextra
-      - -DUSE_FRAMEWORK_MBEDTLS_CMAC
 
 esp32:
   board: esp32-s3-devkitc-1
@@ -96,28 +89,9 @@ esp32:
   framework:
     type: esp-idf
     sdkconfig_options:
-      CONFIG_BT_ENABLED: y
-      CONFIG_BT_NIMBLE_ENABLED: y
       # Configure the maximum number of connections as required (maximum: 9)
       CONFIG_BT_NIMBLE_MAX_CONNECTIONS: "6"
-      CONFIG_BT_NIMBLE_CRYPTO_STACK_MBEDTLS: y
-      CONFIG_MBEDTLS_CCM_C: y
 ```
-> [!NOTE]
-> ESPHome 2026.10.xでは`CONFIG_MBEDTLS_CCM_C: y`が必要です。以前のバージョンでも指定しておいて問題はないようです。
-
-### ESPHomeバージョンによるToolchainとFrameworkの互換性
-
-ESPHomeのバージョンによって、ToolchainとFrameworkの指定可能な組み合わせが異なります。
-うまくコンパイルできない場合は、esp32.toolchainの値を変更してみてください。
-
-| ESPHome version | Framework type | Toolchain                 |
-| --------------- | -------------- | ------------------------- |
-| 2026.8.x        | `esp-idf`      | `esp-idf` or `platformio` |
-|                 | `platformio`   | `esp-idf` or `platformio` |
-| 2026.9.x / 10.x | `esp-idf`      | `esp-idf` or `platformio` |
-|                 | `platformio`   | `platformio`              |
-
 
 ## 以前のESPHome用設定(サンプル)
 

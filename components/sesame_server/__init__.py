@@ -4,6 +4,10 @@ import string
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import binary_sensor, esp32, event, lock, sensor, text_sensor
+from esphome.components.esp32 import (
+    add_idf_sdkconfig_option,
+    include_builtin_idf_component,
+)
 from esphome.const import (
     CONF_ADDRESS,
     CONF_ID,
@@ -274,3 +278,11 @@ async def to_code(config):
     if not CORE.using_arduino:
         esp32.add_idf_component(name="h2zero/esp-nimble-cpp", ref="~2.5.0")
         CORE.add_platformio_option("lib_ignore", "NimBLE-Arduino")
+
+    include_builtin_idf_component("bt")
+    add_idf_sdkconfig_option("CONFIG_BT_ENABLED", True)
+    add_idf_sdkconfig_option("CONFIG_BT_NIMBLE_ENABLED", True)
+    add_idf_sdkconfig_option("CONFIG_BT_BLUEDROID_ENABLED", False)
+    add_idf_sdkconfig_option("CONFIG_BT_NIMBLE_CRYPTO_STACK_MBEDTLS", True)
+    add_idf_sdkconfig_option("CONFIG_MBEDTLS_CCM_C", True)
+    cg.add_build_flag("-DUSE_FRAMEWORK_MBEDTLS_CMAC")
