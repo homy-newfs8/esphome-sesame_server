@@ -45,7 +45,7 @@ script:
     then:
       - lambda: |-
           auto now = id(my_time).now();
-          boolean is_power_saving = now.hour >= 23 || now.hour <= 7;
+          bool is_power_saving = now.hour >= 23 || now.hour <= 7;
           if (is_power_saving || id(lock_1).state == LOCK_STATE_UNLOCKED) {
             id(face_control_lock).unlock();
             ESP_LOGD("example", "Face control: Power saving mode (unlocked)");
