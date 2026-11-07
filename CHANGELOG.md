@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.15.1] 2026-11-07
+- Move mandatory build options to component setup script, removed from example and README.
+- Prepare for ESPHome 2026.11
+
 ## [v0.15.0] 2026-08-23
 - Bump libsesame3bt-server to 0.50.0
 
